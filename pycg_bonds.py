@@ -21,21 +21,28 @@
 # SOFTWARE.
 
 from pymol import cmd, stored
+from math import sqrt
+
+# Order might be important
+cmd.set("retain_order", 1)
+
 def cg_cartoon(selection):
     cmd.cartoon("automatic", selection)
     cmd.show_as("cartoon", selection+" and (name BB or name CA)")
+
 def norm_blist(blist):
     minb = min(blist)
     maxb = max(blist)
     try:
         return [
-            (x - minb) / (maxb - minb)
+            sqrt(x - minb) / sqrt(maxb - minb)
             for x in blist
         ]
     except ZeroDivisionError:
         # Apparently the bfactors are zero
         # Just return the original list
         return blist
+
 def cg_bonds(selection='(all)', aa_template=None, bfile=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
@@ -86,7 +93,8 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None):
                 for b in f
             ]
     if aa_template or bfile:
-        stored.bfactors = norm_blist(stored.bfactors)
+        # Normalizing was needed for one specific usecase
+        #stored.bfactors = norm_blist(stored.bfactors)
         for bb, b in zip(stored.bb_atoms, stored.bfactors):
             cmd.alter("ID {}".format(bb), "b={}".format(b))
 cmd.extend('cg_bonds', cg_bonds)
