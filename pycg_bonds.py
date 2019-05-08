@@ -68,7 +68,8 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None, norm=False):
     # Fix the view nicely
     cmd.hide("everything", selection)
     cmd.show_as("lines", selection+" and name BB")
-    cmd.color("green", selection)
+    #cmd.color("green", selection)
+    cmd.util.cbc(selection)
 
     # Get all the bb atom ids (for b factors)
     stored.bb_atoms = []
