@@ -5,11 +5,10 @@ Allow a cg structure to be visualized in pymol like an atomistic structure.
 in PyMOL do: `run pycg_bonds.py`
 
 # Provides:
-cg_bonds [selection], [aa_template], [bfile]
+cg_bonds [selection], [aa_template]
 
 selection   : any selection to act upon (default: all)
 aa_template : an aa pdb file to take ss and bfactors from (default: None)
-bfile       : alternative file containing a list of backbone b factors (default: None)
 
 Without an aa_template, this function only adds bonds between the backbone beads 
 so they can be nicely visualized using line or stick representation.
@@ -22,3 +21,6 @@ Therefore this script provides the 'cg_cartoon' function to represent only the b
 # NOTE: 
 Dealing with separate chains is *now* implemented.
 Also it only draws bonds between the backbone beads, sidechains beads are not yet implemented
+
+# TODO:
+Implement bond-drawing between backbone and sidechain beads
