@@ -27,10 +27,15 @@ def cg_cartoon(selection):
 def norm_blist(blist):
     minb = min(blist)
     maxb = max(blist)
-    return [
-        (x - minb) / (maxb - minb)
-        for x in blist
-    ]
+    try:
+        return [
+            (x - minb) / (maxb - minb)
+            for x in blist
+        ]
+    except ZeroDivisionError:
+        # Apparently the bfactors are zero
+        # Just return the original list
+        return blist
 def cg_bonds(selection='(all)', aa_template=None, bfile=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
