@@ -43,7 +43,7 @@ def norm_blist(blist):
         # Just return the original list
         return blist
 
-def cg_bonds(selection='(all)', aa_template=None, bfile=None):
+def cg_bonds(selection='(all)', aa_template=None, bfile=None, norm=False):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
@@ -64,16 +64,38 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None):
     NOTE: Dealing with separate chains is not (yet) implemented.
 
     """
+
+    # Fix the view nicely
     cmd.hide("everything", selection)
     cmd.show_as("lines", selection+" and name BB")
     cmd.color("green", selection)
+
+    # Get all the bb atom ids (for b factors)
     stored.bb_atoms = []
     cmd.iterate(str(selection)+" and name BB", "stored.bb_atoms.append(ID)")
-    stored.bfactors = []
-    for i in range(len(stored.bb_atoms)-1):
-        bb = stored.bb_atoms[i]
-        bb_next = stored.bb_atoms[i+1]
-        cmd.bond("ID {}".format(bb), "ID {}".format(bb_next))
+    
+    # Get all the chain identifiers
+    stored.chains = []
+    cmd.iterate(str(selection)+" and resi 1 and name BB", "stored.chains.append(chain)")
+    chain_bb = {}
+
+    # Store the bb atom IDs for each chain
+    for c in stored.chains:
+        stored.c_bbs = []
+        cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
+        chain_bb[c] = stored.c_bbs
+
+    # For each chain, draw bonds between BB beads
+    for c, bbs in chain_bb.items():
+        for i in range(len(bbs)-1):
+            bb = bbs[i]
+            bb_next = bbs[i+1]
+            cmd.bond("ID {}".format(bb), "ID {}".format(bb_next))
+
+    if aa_template or bfile:
+        # Initialize one variable to hold bfactors 
+        stored.bfactors = []
+        
     if aa_template:
         cmd.load(aa_template, "aa_template")
         stored.ss = []
@@ -86,15 +108,18 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None):
         cmd.set("cartoon_trace_atoms")
         cg_cartoon(selection)
         cmd.extend('cg_cartoon', cg_cartoon)
+
     if bfile:
         with open(bfile, 'r') as f:
             stored.bfactors = [
                 float(b)
                 for b in f
             ]
+
     if aa_template or bfile:
         # Normalizing was needed for one specific usecase
-        #stored.bfactors = norm_blist(stored.bfactors)
+        if norm:
+            stored.bfactors = norm_blist(stored.bfactors)
         for bb, b in zip(stored.bb_atoms, stored.bfactors):
             cmd.alter("ID {}".format(bb), "b={}".format(b))
 cmd.extend('cg_bonds', cg_bonds)
