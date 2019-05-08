@@ -19,5 +19,6 @@ because the backbone beads are not recognized as amino acids by pymol.
 Sadly this causes the cartoon representations of all structures to also include non backbone atoms.
 Therefore this script provides the 'cg_cartoon' function to represent only the backbone atoms as cartoon.
 
-NOTE: Dealing with separate chains is not (yet) implemented.
-      Also it only draws bonds between the backbone beads, sidechains beads are not yet implemented
+# NOTE: 
+Dealing with separate chains is not (yet) implemented.
+Also it only draws bonds between the backbone beads, sidechains beads are not yet implemented
