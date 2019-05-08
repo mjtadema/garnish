@@ -21,37 +21,18 @@
 # SOFTWARE.
 
 from pymol import cmd, stored
-from math import sqrt
 
 # Order might be important
 cmd.set("retain_order", 1)
 
-def cg_cartoon(selection):
-    cmd.cartoon("automatic", selection)
-    cmd.show_as("cartoon", selection+" and (name BB or name CA)")
-
-def norm_blist(blist):
-    minb = min(blist)
-    maxb = max(blist)
-    try:
-        return [
-            sqrt(x - minb) / sqrt(maxb - minb)
-            for x in blist
-        ]
-    except ZeroDivisionError:
-        # Apparently the bfactors are zero
-        # Just return the original list
-        return blist
-
-def cg_bonds(selection='(all)', aa_template=None, bfile=None, norm=False):
+def cg_bonds(selection='(all)', aa_template=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
-    Usage: cg_bonds [selection], [aa_template], [bfile]
+    Usage: cg_bonds [selection], [aa_template]
 
     selection   : any selection to act upon (default: all)
     aa_template : an aa pdb file to take ss and bfactors from (default: None)
-    bfile       : alternative file containing a list of backbone b factors (default: None)
 
     Without an aa_template, this function only adds bonds between the backbone beads 
     so they can be nicely visualized using line or stick representation.
@@ -61,8 +42,6 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None, norm=False):
     Sadly this causes the cartoon representations of all structures to also include non backbone atoms.
     Therefore this script provides the 'cg_cartoon' function to represent only the backbone atoms as cartoon.
 
-    NOTE: Dealing with separate chains is not (yet) implemented.
-
     """
 
     # Fix the view nicely
@@ -70,10 +49,6 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None, norm=False):
     cmd.show_as("lines", selection+" and name BB")
     #cmd.color("green", selection)
     cmd.util.cbc(selection)
-
-    # Get all the bb atom ids (for b factors)
-    stored.bb_atoms = []
-    cmd.iterate(str(selection)+" and name BB", "stored.bb_atoms.append(ID)")
     
     # Get all the chain identifiers
     stored.chains = []
@@ -92,11 +67,8 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None, norm=False):
             bb = bbs[i]
             bb_next = bbs[i+1]
             cmd.bond("ID {}".format(bb), "ID {}".format(bb_next))
-
-    if aa_template or bfile:
-        # Initialize one variable to hold bfactors 
-        stored.bfactors = []
         
+    # If an atomistic template was also given, extract ss information
     if aa_template:
         cmd.load(aa_template, "aa_template")
         stored.ss = []
@@ -110,18 +82,9 @@ def cg_bonds(selection='(all)', aa_template=None, bfile=None, norm=False):
         cg_cartoon(selection)
         cmd.extend('cg_cartoon', cg_cartoon)
 
-    if bfile:
-        with open(bfile, 'r') as f:
-            stored.bfactors = [
-                float(b)
-                for b in f
-            ]
+def cg_cartoon(selection):
+    cmd.cartoon("automatic", selection)
+    cmd.show_as("cartoon", selection+" and (name BB or name CA)")
 
-    if aa_template or bfile:
-        # Normalizing was needed for one specific usecase
-        if norm:
-            stored.bfactors = norm_blist(stored.bfactors)
-        for bb, b in zip(stored.bb_atoms, stored.bfactors):
-            cmd.alter("ID {}".format(bb), "b={}".format(b))
 cmd.extend('cg_bonds', cg_bonds)
 print(cg_bonds.__doc__)
