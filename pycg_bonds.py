@@ -73,9 +73,10 @@ def cg_bonds(selection='(all)', aa_template=None):
     if aa_template:
         cmd.load(aa_template, "aa_template")
         stored.ss = []
+        stored.bfactors = []
         cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
         cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
-        for bb, ss in zip(stored.bb_atoms, stored.ss):
+        for bb, ss in zip(stored.bfactors, stored.ss):
             cmd.alter("ID {}".format(bb), 'ss="{}"'.format(ss))
         cmd.delete("aa_template")
         cmd.center(selection)
