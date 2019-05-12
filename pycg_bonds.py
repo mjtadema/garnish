@@ -48,7 +48,6 @@ def cg_bonds(selection='(all)', aa_template=None):
     # Fix the view nicely
     cmd.hide("everything", selection)
     cmd.show_as("lines", selection + " and name BB")
-    #cmd.color("green", selection)
     cmd.util.cbc(selection)
 
     # Give ID to chains without one
@@ -63,7 +62,7 @@ def cg_bonds(selection='(all)', aa_template=None):
         chain_bb[c] = cmd.identify(selection + " and chain {} and name BB".format(c))
 
     # For each chain, draw bonds between BB beads
-    for c, bbs in chain_bb.items():
+    for _, bbs in chain_bb.items():
         for i in range(len(bbs)-1):
             bb = bbs[i]
             bb_next = bbs[i+1]
@@ -87,7 +86,7 @@ def cg_bonds(selection='(all)', aa_template=None):
 
 def cg_cartoon(selection):
     cmd.cartoon("automatic", selection)
-    cmd.show_as("cartoon", selection+" and (name BB or name CA)")
+    cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
 
 cmd.extend('cg_bonds', cg_bonds)
