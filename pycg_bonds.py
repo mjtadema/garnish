@@ -31,7 +31,7 @@ def get_chains(selection):
     cmd.iterate(str(selection)+" and resi 1 and name BB", "stored.chains.append(chain)")
     return stored.chains
 
-def get_chain_bb(selection):
+def get_chain_bb(selection, chains):
     chain_bb = {}
     for c in chains:
         if c in string.ascii_letters:
@@ -70,12 +70,12 @@ def cg_bonds(selection='(all)', aa_template=None):
     cmd.show_as("lines", selection+" and name BB")
     #cmd.color("green", selection)
     cmd.util.cbc(selection)
-
-    # Get all the chain identifiers
+    
+    # Get chain ids
     chains = get_chains(selection)
 
     # Store the bb atom IDs for each chain
-    chain_bb = get_chain_bb(selection)
+    chain_bb = get_chain_bb(selection, )
 
     # For each chain, draw bonds between BB beads
     for c, bbs in chain_bb.items():
