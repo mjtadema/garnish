@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 from pymol import cmd, stored
+import string
 
 # Order might be important
 cmd.set("retain_order", 1)
@@ -29,6 +30,21 @@ def get_chains(selection):
     stored.chains = []
     cmd.iterate(str(selection)+" and resi 1 and name BB", "stored.chains.append(chain)")
     return stored.chains
+
+def get_chain_bb(selection):
+    chain_bb = {}
+    for c in chains:
+        if c in string.ascii_letters:
+            stored.c_bbs = []
+            cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
+            chain_bb[c] = stored.c_bbs
+        # If there are no ids, put them together
+        else:
+            stored.c_bbs = []
+            cmd.iterate(str(selection)+" and name BB", "stored.c_bbs.append(ID)")
+            chain_bb["all"] = stored.c_bbs
+            break
+    return chain_bb
 
 def cg_bonds(selection='(all)', aa_template=None):
     """
@@ -59,19 +75,7 @@ def cg_bonds(selection='(all)', aa_template=None):
     chains = get_chains(selection)
 
     # Store the bb atom IDs for each chain
-    chain_bb = {}
-    if len(chains) > 1:
-        for c in chains:
-            stored.c_bbs = []
-            cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
-            chain_bb[c] = stored.c_bbs
-    # If there are no chains, put them together
-    else:
-            stored.c_bbs = []
-            cmd.iterate(str(selection)+" and name BB", "stored.c_bbs.append(ID)")
-            chain_bb["all"] = stored.c_bbs
-
-
+    chain_bb = get_chain_bb(selection)
 
     # For each chain, draw bonds between BB beads
     for c, bbs in chain_bb.items():
