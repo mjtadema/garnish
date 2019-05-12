@@ -25,6 +25,11 @@ from pymol import cmd, stored
 # Order might be important
 cmd.set("retain_order", 1)
 
+def get_chains(selection):
+    stored.chains = []
+    cmd.iterate(str(selection)+" and resi 1 and name BB", "stored.chains.append(chain)")
+    return stored.chains
+
 def cg_bonds(selection='(all)', aa_template=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
@@ -51,11 +56,10 @@ def cg_bonds(selection='(all)', aa_template=None):
     cmd.util.cbc(selection)
     
     # Get all the chain identifiers
-    stored.chains = []
-    cmd.iterate(str(selection)+" and resi 1 and name BB", "stored.chains.append(chain)")
-    chain_bb = {}
+    chains = get_chains(selection)
 
     # Store the bb atom IDs for each chain
+    chain_bb = {}
     for c in stored.chains:
         stored.c_bbs = []
         cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
