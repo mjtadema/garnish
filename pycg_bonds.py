@@ -47,7 +47,7 @@ def cg_bonds(selection='(all)', aa_template=None):
 
     # Fix the view nicely
     cmd.hide("everything", selection)
-    cmd.show_as("lines", selection+" and name BB")
+    cmd.show_as("lines", selection + " and name BB")
     #cmd.color("green", selection)
     cmd.util.cbc(selection)
 
@@ -60,8 +60,7 @@ def cg_bonds(selection='(all)', aa_template=None):
     # Store the bb atom IDs for each chain
     chain_bb = {}
     for c in chains:
-        cmd.iterate(selection + " and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
-        chain_bb[c] = stored.c_bbs
+        chain_bb[c] = cmd.identify(selection + " and chain {} and name BB".format(c))
 
     # For each chain, draw bonds between BB beads
     for c, bbs in chain_bb.items():
