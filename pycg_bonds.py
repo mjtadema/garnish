@@ -51,15 +51,16 @@ def cg_bonds(selection='(all)', aa_template=None):
     #cmd.color("green", selection)
     cmd.util.cbc(selection)
 
+    # Give ID to chains without one
+    cmd.alter(selection + " and chain ''", "chain=None")
+
     # Get all the chain identifiers
-    stored.chains = []
-    cmd.iterate(str(selection)+" and resi 1 and name BB", "stored.chains.append(chain)")
-    chain_bb = {}
+    chains = cmd.get_chains()
 
     # Store the bb atom IDs for each chain
-    for c in stored.chains:
-        stored.c_bbs = []
-        cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
+    chain_bb = {}
+    for c in chains:
+        cmd.iterate(selection + " and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
         chain_bb[c] = stored.c_bbs
 
     # For each chain, draw bonds between BB beads
