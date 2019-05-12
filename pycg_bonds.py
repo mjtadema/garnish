@@ -91,4 +91,3 @@ def cg_cartoon(selection):
     cmd.show_as("cartoon", selection+" and (name BB or name CA)")
 
 cmd.extend('cg_bonds', cg_bonds)
-print(cg_bonds.__doc__)
