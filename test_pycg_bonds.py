@@ -1,14 +1,12 @@
 import pycg_bonds as target
 from pymol import cmd, stored, CmdException
 import os
-from pdb import set_trace as bp
 
 def test_get_chain_bb():
     cmd.reinitialize()
     selection = "cg_oligomer_nochains"
     cmd.load(selection+".pdb")
-    chains = target.get_chains(selection)
-    bp()
+    chains = cmd.get_chains(selection)
     target.get_chain_bb(selection, chains)
 
 test_list = [
