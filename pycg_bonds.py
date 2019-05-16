@@ -20,11 +20,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from pymol import cmd, stored
+from pymol import cmd
 
 # Order might be important
 cmd.set("retain_order", 1)
 
+def get_chain_bb(selection, chains):
+    """
+    returns dictionary with format {chain: list-of-bb-atoms}
+    """
+    chain_bb = {}
+    for c in chains:
+        # if chain is empty string, put it in the "all" bin
+        if not c:
+            c = "all"
+        chain_bb[c] = cmd.identify(selection + f" and chain {c} and name BB")
+    return chain_bb
 
 def cg_bonds(selection='(all)', aa_template=None):
     """
@@ -50,23 +61,17 @@ def cg_bonds(selection='(all)', aa_template=None):
     cmd.show_as("lines", selection + " and name BB")
     cmd.util.cbc(selection)
 
-    # Give ID to chains without one
-    cmd.alter(selection + " and chain ''", "chain=None")
-
     # Get all the chain identifiers
-    chains = cmd.get_chains()
+    chains = cmd.get_chains(selection)
 
-    # Store the bb atom IDs for each chain
-    chain_bb = {}
-    for c in chains:
-        chain_bb[c] = cmd.identify(selection + " and chain {} and name BB".format(c))
+    chain_bb = get_chain_bb(selection, chains)
 
     # For each chain, draw bonds between BB beads
     for _, bbs in chain_bb.items():
         for i in range(len(bbs)-1):
             bb = bbs[i]
             bb_next = bbs[i+1]
-            cmd.bond("ID {}".format(bb), "ID {}".format(bb_next))
+            cmd.bond(f"ID {bb}", f"ID {bb_next}")
 
     # If an atomistic template was also given, extract ss information
     if aa_template:
@@ -76,7 +81,7 @@ def cg_bonds(selection='(all)', aa_template=None):
         cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
         cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
         for bb, ss in zip(stored.bfactors, stored.ss):
-            cmd.alter("ID {}".format(bb), 'ss="{}"'.format(ss))
+            cmd.alter(f"ID {bb}", f'ss="{ss}"')
         cmd.delete("aa_template")
         cmd.center(selection)
         cmd.set("cartoon_trace_atoms")
@@ -90,4 +95,3 @@ def cg_cartoon(selection):
 
 
 cmd.extend('cg_bonds', cg_bonds)
-print(cg_bonds.__doc__)
