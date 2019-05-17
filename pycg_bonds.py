@@ -191,8 +191,8 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         # Draw all the bonds
         for mol in molecules.values():
             for btype in mol.values():
-            for a, b in btype.edges:
-                cmd.bond(f"ID {a}", f"ID {b}")
+                for a, b in btype.edges:
+                    cmd.bond(f"ID {a}", f"ID {b}")
 
 
 
