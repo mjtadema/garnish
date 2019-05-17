@@ -127,9 +127,9 @@ def parse_tpr(tpr_file):
                 if not regexp_is_mol.match(line):
                     for k, p in regexp_bonds.items():
                         if p.match(line):
-                            # Cast to int and increment with one to match the numbering in pymol
+                            # Cast to int
                             bond = p.findall(line)[0]
-                            bond = tuple( int(b)+1 for b in bond )
+                            bond = tuple( int(b) for b in bond )
                             bonds[k].append(bond)
                 # If not, parse the bonds
                 else:
