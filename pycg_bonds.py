@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2019 Matthijs Tadema
+# Copyright (c) 2019 Matthijs Tadema, Lorenzo Gaifas
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,15 +20,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
 from pymol import cmd, stored
-import string
 import networkx as nx
 from pathlib import Path
-import re, io
-import subprocess, shlex, shutil
+import re
+import io
+import subprocess
+import shlex
+import shutil
+from pdb import set_trace
 
 # Order might be important
-cmd.set("retain_order", 1)
+cmd.set("retain_order", 1)      # TODO: move to a better place
+
 
 def get_chain_bb(selection, chains):
     """
@@ -41,6 +46,7 @@ def get_chain_bb(selection, chains):
             c = "all"
         chain_bb[c] = cmd.identify(selection + f" and chain {c} and name BB")
     return chain_bb
+
 
 def parse_tpr(tpr_file, gmx=False):
     """
@@ -59,7 +65,6 @@ def parse_tpr(tpr_file, gmx=False):
         }
 
     """
-
     tpr = Path(tpr_file)
     assert tpr.is_file()
 
@@ -74,7 +79,7 @@ def parse_tpr(tpr_file, gmx=False):
     
     # Regex like cg_bonds to get relevant info
     p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|.*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
-    
+
     regexp_all = {
         'molid': re.compile("^\s+moltype\s+=\s+(\d+)"),
         'occs': re.compile("^\s+\#molecules\s+=\s+(\d+)"),
@@ -98,7 +103,7 @@ def parse_tpr(tpr_file, gmx=False):
     
     reading_header = True
     for line in io.TextIOWrapper(gmxdump.stdout, encoding="utf-8"):
-        # only look at lines containing useful stuff
+        # Filter for the relevant info
         if p_grep.match(line):
             # when looking for a header, only care about these regexes
             if reading_header:
@@ -109,7 +114,8 @@ def parse_tpr(tpr_file, gmx=False):
                         regex_data[k] = matched.group(1)
                 matched_mol = regexp_is_mol.match(line)
                 if matched_mol:
-                    # initialize everything for the first molecule
+                    # If it started to describe a molecule, flag reading_header False
+                    # and initialise the first molecule
                     reading_header = False
                     molid = matched_mol.group(1)
                     bonds = {
@@ -122,8 +128,10 @@ def parse_tpr(tpr_file, gmx=False):
                     matched = p.match(line)
                     if matched:
                         bond = matched.group(1, 2)
+                        # Cast to int
+                        bond = tuple( int(b) for b in bond )
                         bonds[k].append(bond)
-                        # no need to parse for everything.
+                        # no need to parse for everything
                         break
                 # if none of the above was found, look for a header
                 else:
@@ -143,6 +151,7 @@ def parse_tpr(tpr_file, gmx=False):
     
     return molecules
 
+
 def rel_atom(selection):
     # Make a dict of all the atoms (to get effective relative atom numbering)
     rel_atom_dict = {}
@@ -150,6 +159,7 @@ def rel_atom(selection):
     for i, at in enumerate(atoms.atom):
         rel_atom_dict[i] = at.index
     return rel_atom_dict
+
 
 def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     """
@@ -169,7 +179,6 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     Therefore this script provides the 'cg_cartoon' function to represent only the backbone atoms as cartoon.
 
     """
-
     # Fix the view nicely
     cmd.hide("everything", selection)
     cmd.show_as("lines", selection + " and name BB")
@@ -198,8 +207,8 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         for mol in molecules.values():
             for btype in ['bonds','constr']:
                 for a, b in mol[btype].edges:
-                    a = rel_atom_selection[str(a)]
-                    b = rel_atom_selection[str(b)]
+                    a = rel_atom_selection[a]
+                    b = rel_atom_selection[b]
                     cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
             # Get relative atoms for elastics object
             rel_atom_elastics = rel_atom(elastics_selector)
@@ -208,8 +217,8 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
                 rel_atom_elastics[i] = at.index
             # Draw elastic network
             for a, b in mol['harmonic'].edges:
-                a = rel_atom_elastics[str(a)]
-                b = rel_atom_elastics[str(b)]
+                a = rel_atom_elastics[a]
+                b = rel_atom_elastics[b]
                 cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
             cmd.color("orange", elastics_selector)
 
@@ -236,6 +245,7 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     #    cmd.set("cartoon_trace_atoms")
     #    cg_cartoon(selection)
     #    cmd.extend('cg_cartoon', cg_cartoon)
+
 
 def cg_cartoon(selection):
     cmd.cartoon("automatic", selection)
