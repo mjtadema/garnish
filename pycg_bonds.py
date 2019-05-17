@@ -27,6 +27,7 @@ import networkx as nx
 from pathlib import Path
 import re, io
 import subprocess, shlex, shutil
+from pdb import set_trace
 
 # Order might be important
 cmd.set("retain_order", 1)
@@ -137,7 +138,6 @@ def parse_tpr(tpr_file, gmx=False):
                         for k in regexp_bonds
                     }
 
-
     # Convert the lists of bonds to graphs
     for molid, molecule in molecules.items():
         for bondtype, bonds in molecule.items():
@@ -202,8 +202,9 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         for mol in molecules.values():
             for btype in ['bonds','constr']:
                 for a, b in mol[btype].edges:
-                    a = rel_atom[a]
-                    b = rel_atom[b]
+                    set_trace()
+                    a = rel_atom_selection[a]
+                    b = rel_atom_selection[b]
                     cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
             # Get relative atoms for elastics object
             rel_atom_elastics = rel_atom(elastics_selector)
@@ -247,5 +248,3 @@ def cg_cartoon(selection):
 
 
 cmd.extend('cg_bonds', cg_bonds)
-
-print(parse_tpr('em.tpr'))
