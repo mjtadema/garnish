@@ -176,20 +176,20 @@ def cg_bonds(selection='(all)', aa_template=None):
             bb_next = bbs[i+1]
             cmd.bond(f"ID {bb}", f"ID {bb_next}")
 
-    # If an atomistic template was also given, extract ss information
-    if aa_template:
-        cmd.load(aa_template, "aa_template")
-        stored.ss = []
-        stored.bfactors = []
-        cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
-        cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
-        for bb, ss in zip(stored.bfactors, stored.ss):
-            cmd.alter(f"ID {bb}", f'ss="{ss}"')
-        cmd.delete("aa_template")
-        cmd.center(selection)
-        cmd.set("cartoon_trace_atoms")
-        cg_cartoon(selection)
-        cmd.extend('cg_cartoon', cg_cartoon)
+    ## If an atomistic template was also given, extract ss information
+    #if aa_template:
+    #    cmd.load(aa_template, "aa_template")
+    #    stored.ss = []
+    #    stored.bfactors = []
+    #    cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
+    #    cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
+    #    for bb, ss in zip(stored.bfactors, stored.ss):
+    #        cmd.alter(f"ID {bb}", f'ss="{ss}"')
+    #    cmd.delete("aa_template")
+    #    cmd.center(selection)
+    #    cmd.set("cartoon_trace_atoms")
+    #    cg_cartoon(selection)
+    #    cmd.extend('cg_cartoon', cg_cartoon)
 
 def cg_cartoon(selection):
     cmd.cartoon("automatic", selection)
