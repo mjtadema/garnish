@@ -188,11 +188,32 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     molecules = parse_tpr(tpr_file)
     
     if tpr_file:
+        # Create dummy object to draw elastic bonds in
+        elastics_selector = selection+"_elastics"
+        cmd.create(elastics_selector, selection)
+        # Make a dict of all the atoms (to get effective relative atom numbering)
+        rel_atom = {}
+        atoms = cmd.get_model(selection)
+        for i, at in enumerate(atoms.atom):
+            rel_atom[i] = at.index
         # Draw all the bonds
         for mol in molecules.values():
-            for btype in mol.values():
-                for a, b in btype.edges:
-                    cmd.bond(f"ID {a}", f"ID {b}")
+            for btype in ['bonds','constr']:
+                for a, b in mol[btype].edges:
+                    a = rel_atom[a]
+                    b = rel_atom[b]
+                    cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+            # Get relative atoms for elastics object
+            rel_atom = {}
+            atoms = cmd.get_model(elastics_selector)
+            for i, at in enumerate(atoms.atom):
+                rel_atom[i] = at.index
+            # Draw elastic network
+            for a, b in mol['harmonic'].edges:
+                a = rel_atom[a]
+                b = rel_atom[b]
+                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+            cmd.color("orange", elastics_selector)
 
     else:
         chain_bb = get_chain_bb(selection, chains)
