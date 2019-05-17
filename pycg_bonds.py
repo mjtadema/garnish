@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2019 Matthijs Tadema
+# Copyright (c) 2019 Matthijs Tadema, Lorenzo Gaifas
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,6 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
 
 from pymol import cmd, stored
 import string
@@ -40,22 +41,7 @@ def get_chain_bb(selection, chains):
         if not c:
             c = "all"
         chain_bb[c] = cmd.identify(selection + f" and chain {c} and name BB")
-
-def get_chain_bb(selection, chains):
-    chain_bb = {}
-    for c in chains:
-        if c in string.ascii_letters:
-            stored.c_bbs = []
-            cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
-            chain_bb[c] = stored.c_bbs
-        # If there are no ids, put them together
-        else:
-            stored.c_bbs = []
-            cmd.iterate(str(selection)+" and name BB", "stored.c_bbs.append(ID)")
-            chain_bb["all"] = stored.c_bbs
-            break
     return chain_bb
-
 
 def parse_tpr(tpr_file, gmx=False):
     """
@@ -74,7 +60,6 @@ def parse_tpr(tpr_file, gmx=False):
         }
 
     """
-
     tpr = Path(tpr_file)
     assert tpr.is_file()
 
@@ -87,6 +72,7 @@ def parse_tpr(tpr_file, gmx=False):
     gmxdump = gmx + " dump -s " + str(tpr.absolute())
     gmxdump = subprocess.Popen(shlex.split(gmxdump), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
+    # Regex like cg_bonds to get relevant info
     p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|.*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
     
     regexp_all = {
@@ -102,6 +88,7 @@ def parse_tpr(tpr_file, gmx=False):
     }
     regexp_is_mol = re.compile("^\s+moltype\s+\((\d+)\):")
     
+    # Should probably return this as well
     regex_data = {
         k: []
         for k in regexp_all.keys()
@@ -111,17 +98,19 @@ def parse_tpr(tpr_file, gmx=False):
     
     reading_header = True
     for line in io.TextIOWrapper(gmxdump.stdout, encoding="utf-8"):
-        # only look at lines containing useful stuff
+        # Filter for the relevant info
         if p_grep.match(line):
             # when looking for a header, only care about these regexes
             if reading_header:
+                # Parse the meta info
                 for k, p in regexp_all.items():
                     matched = p.match(line)
                     if matched:
                         regex_data[k] = matched.group(1)
                 matched_mol = regexp_is_mol.match(line)
                 if matched_mol:
-                    # initialize everything for the first molecule
+                    # If it started to describe a molecule, flag reading_header False
+                    # and initialise the first molecule
                     reading_header = False
                     molid = matched_mol.group(1)
                     bonds = {
@@ -134,8 +123,10 @@ def parse_tpr(tpr_file, gmx=False):
                     matched = p.match(line)
                     if matched:
                         bond = matched.group(1, 2)
+                        # Cast to int
+                        bond = tuple( int(b) for b in bond )
                         bonds[k].append(bond)
-                        # no need to parse for everything.
+                        # no need to parse for everything
                         break
                 # if none of the above was found, look for a header
                 else:
@@ -146,16 +137,25 @@ def parse_tpr(tpr_file, gmx=False):
                         for k in regexp_bonds
                     }
 
+
+    # Convert the lists of bonds to graphs
     for molid, molecule in molecules.items():
         for bondtype, bonds in molecule.items():
             g = nx.Graph()
-            g.add_edges_from(bonds)
+            g.add_edges_from(list(bonds))
             molecules[molid][bondtype] = g
     
     return molecules
 
+def rel_atom(selection):
+    # Make a dict of all the atoms (to get effective relative atom numbering)
+    rel_atom_dict = {}
+    atoms = cmd.get_model(selection)
+    for i, at in enumerate(atoms.atom):
+        rel_atom_dict[i] = at.index
+    return rel_atom_dict
 
-def cg_bonds(selection='(all)', aa_template=None):
+def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
@@ -179,32 +179,67 @@ def cg_bonds(selection='(all)', aa_template=None):
     cmd.show_as("lines", selection + " and name BB")
     cmd.util.cbc(selection)
 
-    # Get all the chain identifiers
-    chains = cmd.get_chains(selection)
+    ## Get all the chain identifiers and all the atoms
+    #chains = cmd.get_chains(selection)
+    #atoms_per_chain = {}
+    #for chain in chains:
+    #    model = cmd.get_model(selection+" and chain "+chain)
+    #    atoms_per_chain[chain] = [
+    #                at.index
+    #                for at in model.atom
+    #            ]
 
-    chain_bb = get_chain_bb(selection, chains)
+    # Get molecules
+    molecules = parse_tpr(tpr_file)
+    
+    if tpr_file:
+        # Create dummy object to draw elastic bonds in
+        elastics_selector = selection+"_elastics"
+        cmd.create(elastics_selector, selection)
+        # Make a dict of all the atoms (to get effective relative atom numbering)
+        rel_atom_selection = rel_atom(selection)
+        # Draw all the bonds
+        for mol in molecules.values():
+            for btype in ['bonds','constr']:
+                for a, b in mol[btype].edges:
+                    a = rel_atom[a]
+                    b = rel_atom[b]
+                    cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+            # Get relative atoms for elastics object
+            rel_atom_elastics = rel_atom(elastics_selector)
+            atoms = cmd.get_model(elastics_selector)
+            for i, at in enumerate(atoms.atom):
+                rel_atom_elastics[i] = at.index
+            # Draw elastic network
+            for a, b in mol['harmonic'].edges:
+                a = rel_atom_elastics[a]
+                b = rel_atom_elastics[b]
+                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+            cmd.color("orange", elastics_selector)
 
-    # For each chain, draw bonds between BB beads
-    for _, bbs in chain_bb.items():
-        for i in range(len(bbs)-1):
-            bb = bbs[i]
-            bb_next = bbs[i+1]
-            cmd.bond(f"ID {bb}", f"ID {bb_next}")
+    else:
+        chain_bb = get_chain_bb(selection, chains)
+        # For each chain, draw bonds between BB beads
+        for _, bbs in chain_bb.items():
+            for i in range(len(bbs)-1):
+                bb = bbs[i]
+                bb_next = bbs[i+1]
+                cmd.bond(f"ID {bb}", f"ID {bb_next}")
 
-    # If an atomistic template was also given, extract ss information
-    if aa_template:
-        cmd.load(aa_template, "aa_template")
-        stored.ss = []
-        stored.bfactors = []
-        cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
-        cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
-        for bb, ss in zip(stored.bfactors, stored.ss):
-            cmd.alter(f"ID {bb}", f'ss="{ss}"')
-        cmd.delete("aa_template")
-        cmd.center(selection)
-        cmd.set("cartoon_trace_atoms")
-        cg_cartoon(selection)
-        cmd.extend('cg_cartoon', cg_cartoon)
+    ## If an atomistic template was also given, extract ss information
+    #if aa_template:
+    #    cmd.load(aa_template, "aa_template")
+    #    stored.ss = []
+    #    stored.bfactors = []
+    #    cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
+    #    cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
+    #    for bb, ss in zip(stored.bfactors, stored.ss):
+    #        cmd.alter(f"ID {bb}", f'ss="{ss}"')
+    #    cmd.delete("aa_template")
+    #    cmd.center(selection)
+    #    cmd.set("cartoon_trace_atoms")
+    #    cg_cartoon(selection)
+    #    cmd.extend('cg_cartoon', cg_cartoon)
 
 def cg_cartoon(selection):
     cmd.cartoon("automatic", selection)
