@@ -142,8 +142,6 @@ def get_bonds_tpr(filepath, gmx=None):
                     elastic[mol].append(b)
                     bonds[mol].remove(b)
 
-    print(set(elastic)-set(elastic_old))
-
     return bonds, elastic
 
 
@@ -179,6 +177,7 @@ cmd.extend('cg_bonds', cg_bonds)
 
 
 bonds, elastic = get_bonds_tpr('em.tpr')
+print(bonds, elastic)
 cg_bonds(bonds, elastic)
 #print(get_bonds_top('cg.top'))
 
