@@ -28,7 +28,6 @@ import io
 import subprocess
 import shlex
 import shutil
-from pdb import set_trace
 
 # Order might be important
 cmd.set("retain_order", 1)      # TODO: move to a better place
