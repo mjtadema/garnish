@@ -40,21 +40,22 @@ def get_chain_bb(selection, chains):
         if not c:
             c = "all"
         chain_bb[c] = cmd.identify(selection + f" and chain {c} and name BB")
-
-def get_chain_bb(selection, chains):
-    chain_bb = {}
-    for c in chains:
-        if c in string.ascii_letters:
-            stored.c_bbs = []
-            cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
-            chain_bb[c] = stored.c_bbs
-        # If there are no ids, put them together
-        else:
-            stored.c_bbs = []
-            cmd.iterate(str(selection)+" and name BB", "stored.c_bbs.append(ID)")
-            chain_bb["all"] = stored.c_bbs
-            break
     return chain_bb
+
+#def get_chain_bb(selection, chains):
+#    chain_bb = {}
+#    for c in chains:
+#        if c in string.ascii_letters:
+#            stored.c_bbs = []
+#            cmd.iterate(str(selection)+" and name BB and chain {}".format(c), "stored.c_bbs.append(ID)")
+#            chain_bb[c] = stored.c_bbs
+#        # If there are no ids, put them together
+#        else:
+#            stored.c_bbs = []
+#            cmd.iterate(str(selection)+" and name BB", "stored.c_bbs.append(ID)")
+#            chain_bb["all"] = stored.c_bbs
+#            break
+#    return chain_bb
 
 def parse_tpr(tpr_file):
     """
