@@ -129,7 +129,7 @@ def parse_tpr(tpr_file):
                         if p.match(line):
                             # Cast to int and increment with one to match the numbering in pymol
                             bond = p.findall(line)[0]
-                            bond = ( int(b)+1 for b in bond )
+                            bond = tuple( int(b)+1 for b in bond )
                             bonds[k].append(bond)
                 # If not, parse the bonds
                 else:
@@ -144,7 +144,7 @@ def parse_tpr(tpr_file):
     for molid, molecule in molecules.items():
         for bondtype, bonds in molecule.items():
             g = nx.Graph()
-            g.add_edges_from(bonds)
+            g.add_edges_from(list(bonds))
             molecules[molid][bondtype] = g
     
     return molecules
@@ -193,9 +193,6 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
             for btype in mol.values():
                 for a, b in btype.edges:
                     cmd.bond(f"ID {a}", f"ID {b}")
-
-
-
 
     else:
         chain_bb = get_chain_bb(selection, chains)
