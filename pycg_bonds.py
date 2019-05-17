@@ -97,6 +97,7 @@ def parse_tpr(tpr_file):
     }
     regexp_is_mol = re.compile("^\s+moltype\s+\((\d+)\):")
     
+    # Should probably return this as well
     regex_data = {
         k: []
         for k in regexp_all.keys()
@@ -106,11 +107,14 @@ def parse_tpr(tpr_file):
     
     reading_header = True
     for line in io.TextIOWrapper(gmxdump.stdout, encoding="utf-8"):
+        # Filter for the relevant info
         if p_grep.match(line):
             if reading_header:
+                # Parse the meta info
                 for k, p in regexp_all.items():
                     if p.match(line):
                         regex_data[k] = p.findall(line)[0]
+                # If it started to describe a molecule, flag reading_header False
                 if regexp_is_mol.match(line):
                     reading_header = False
                     molid = regexp_is_mol.findall(line)[0]
@@ -119,11 +123,15 @@ def parse_tpr(tpr_file):
                         for k in regexp_bonds
                     }
             else:
+                # Check if a line is a new molecule
                 if not regexp_is_mol.match(line):
                     for k, p in regexp_bonds.items():
                         if p.match(line):
+                            # Cast to int and increment with one to match the numbering in pymol
                             bond = p.findall(line)[0]
+                            bond = ( int(b) for b in bond )
                             bonds[k].append(bond)
+                # If not, parse the bonds
                 else:
                     molecules[molid] = bonds
                     molid = regexp_is_mol.findall(line)[0]
@@ -132,6 +140,7 @@ def parse_tpr(tpr_file):
                         for k in regexp_bonds
                     }
                     
+    # Convert the lists of bonds to graphs
     for molid, molecule in molecules.items():
         for bondtype, bonds in molecule.items():
             g = nx.Graph()
