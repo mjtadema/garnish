@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
 from pymol import cmd, stored
 import networkx as nx
 from pathlib import Path
@@ -184,16 +183,6 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     cmd.show_as("lines", selection + " and name BB")
     cmd.util.cbc(selection)
 
-    ## Get all the chain identifiers and all the atoms
-    #chains = cmd.get_chains(selection)
-    #atoms_per_chain = {}
-    #for chain in chains:
-    #    model = cmd.get_model(selection+" and chain "+chain)
-    #    atoms_per_chain[chain] = [
-    #                at.index
-    #                for at in model.atom
-    #            ]
-
     # Get molecules
     molecules = parse_tpr(tpr_file)
     
@@ -231,25 +220,8 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
                 bb_next = bbs[i+1]
                 cmd.bond(f"ID {bb}", f"ID {bb_next}")
 
-    ## If an atomistic template was also given, extract ss information
-    #if aa_template:
-    #    cmd.load(aa_template, "aa_template")
-    #    stored.ss = []
-    #    stored.bfactors = []
-    #    cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
-    #    cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
-    #    for bb, ss in zip(stored.bfactors, stored.ss):
-    #        cmd.alter(f"ID {bb}", f'ss="{ss}"')
-    #    cmd.delete("aa_template")
-    #    cmd.center(selection)
-    #    cmd.set("cartoon_trace_atoms")
-    #    cg_cartoon(selection)
-    #    cmd.extend('cg_cartoon', cg_cartoon)
-
-
 def cg_cartoon(selection):
     cmd.cartoon("automatic", selection)
     cmd.show_as("cartoon", selection + " and (name BB or name CA)")
-
 
 cmd.extend('cg_bonds', cg_bonds)
