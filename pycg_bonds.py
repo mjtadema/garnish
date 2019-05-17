@@ -26,6 +26,7 @@ import networkx as nx
 from pathlib import Path
 import re, io
 import subprocess, shlex, shutil
+from pdb import set_trace
 
 # Order might be important
 cmd.set("retain_order", 1)
@@ -104,19 +105,12 @@ def parse_tpr(tpr_file, gmx=False):
             if reading_header:
                 # Parse the meta info
                 for k, p in regexp_all.items():
-#<<<<<<< HEAD
-#                    if p.match(line):
-#                        regex_data[k] = p.findall(line)[0]
-#                # If it started to describe a molecule, flag reading_header False
-#                if regexp_is_mol.match(line):
-#=======
                     matched = p.match(line)
                     if matched:
                         regex_data[k] = matched.group(1)
                 matched_mol = regexp_is_mol.match(line)
                 if matched_mol:
                     # initialize everything for the first molecule
-#>>>>>>> 27de9d12f9abb30cbd7c8de7b6ad987b7c2a6caa
                     reading_header = False
                     molid = matched_mol.group(1)
                     bonds = {
@@ -124,17 +118,6 @@ def parse_tpr(tpr_file, gmx=False):
                         for k in regexp_bonds
                     }
             else:
-#<<<<<<< HEAD
-#                # Check if a line is a new molecule
-#                if not regexp_is_mol.match(line):
-#                    for k, p in regexp_bonds.items():
-#                        if p.match(line):
-#                            # Cast to int
-#                            bond = p.findall(line)[0]
-#                            bond = tuple( int(b) for b in bond )
-#                            bonds[k].append(bond)
-#                # If not, parse the bonds
-#=======
                 # parse bond data
                 for k, p in regexp_bonds.items():
                     matched = p.match(line)
@@ -144,7 +127,6 @@ def parse_tpr(tpr_file, gmx=False):
                         # no need to parse for everything.
                         break
                 # if none of the above was found, look for a header
-#>>>>>>> 27de9d12f9abb30cbd7c8de7b6ad987b7c2a6caa
                 else:
                     molecules[molid] = bonds
                     molid = regexp_is_mol.search(line).group(1)
@@ -216,7 +198,8 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         # Draw all the bonds
         for mol in molecules.values():
             for btype in ['bonds','constr']:
-                for (a, b) in mol[btype].edges:
+                for a, b in mol[btype].edges:
+                    set_trace()
                     a = rel_atom_selection[a]
                     b = rel_atom_selection[b]
                     cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
