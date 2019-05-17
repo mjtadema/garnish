@@ -75,12 +75,13 @@ def parse_tpr(tpr_file):
 
     """
 
-    tpr = Path("tpr_file")
+    tpr = Path(tpr_file)
     assert tpr.is_file()
 
     gmxdump = "/usr/bin/gmx dump -s "+str(tpr.absolute())
     gmxdump = subprocess.Popen(shlex.split(gmxdump), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
+    # Regex like cg_bonds to get relevant info
     p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|.*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
     
     regexp_all = {
@@ -140,7 +141,7 @@ def parse_tpr(tpr_file):
     return molecules
 
 
-def cg_bonds(selection='(all)', aa_template=None):
+def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
@@ -164,17 +165,40 @@ def cg_bonds(selection='(all)', aa_template=None):
     cmd.show_as("lines", selection + " and name BB")
     cmd.util.cbc(selection)
 
-    # Get all the chain identifiers
-    chains = cmd.get_chains(selection)
+    ## Get all the chain identifiers and all the atoms
+    #chains = cmd.get_chains(selection)
+    #atoms_per_chain = {}
+    #for chain in chains:
+    #    model = cmd.get_model(selection+" and chain "+chain)
+    #    atoms_per_chain[chain] = [
+    #                at.index
+    #                for at in model.atom
+    #            ]
 
-    chain_bb = get_chain_bb(selection, chains)
+    # Get molecules
+    molecules = parse_tpr(tpr_file)
+    
+    if tpr_file:
+        # Draw all the bonds
+        for mol in molecules.values():
+            for btype in mol.values():
+            for a, b in btype.edges:
+                # Quick and dirty offset but should be fixed at the source
+                a = int(a)+1
+                b = int(b)+1
+                cmd.bond(f"ID {a}", f"ID {b}")
 
-    # For each chain, draw bonds between BB beads
-    for _, bbs in chain_bb.items():
-        for i in range(len(bbs)-1):
-            bb = bbs[i]
-            bb_next = bbs[i+1]
-            cmd.bond(f"ID {bb}", f"ID {bb_next}")
+
+
+
+    else:
+        chain_bb = get_chain_bb(selection, chains)
+        # For each chain, draw bonds between BB beads
+        for _, bbs in chain_bb.items():
+            for i in range(len(bbs)-1):
+                bb = bbs[i]
+                bb_next = bbs[i+1]
+                cmd.bond(f"ID {bb}", f"ID {bb_next}")
 
     ## If an atomistic template was also given, extract ss information
     #if aa_template:
