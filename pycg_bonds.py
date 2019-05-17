@@ -57,6 +57,22 @@ def get_chain_bb(selection, chains):
     return chain_bb
 
 def parse_tpr(tpr_file):
+    """
+    Parses the gmx dump output of a tpr file into a networkx graph representation of the connectivity within the system
+
+    input: a filename pointing to a tpr file
+
+    returns: a dictionary of molecules, each with a dictonary of graphs representing different connection types
+
+    molecules {
+        molid: bondtypes {
+            bonds:      nx.Graph
+            constr:     nx.Graph
+            harmonic:   nx.Graph
+            }
+        }
+
+    """
 
     tpr = Path("tpr_file")
     assert tpr.is_file()
