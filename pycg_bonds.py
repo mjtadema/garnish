@@ -129,7 +129,7 @@ def parse_tpr(tpr_file):
                         if p.match(line):
                             # Cast to int and increment with one to match the numbering in pymol
                             bond = p.findall(line)[0]
-                            bond = ( int(b) for b in bond )
+                            bond = ( int(b)+1 for b in bond )
                             bonds[k].append(bond)
                 # If not, parse the bonds
                 else:
@@ -192,9 +192,6 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         for mol in molecules.values():
             for btype in mol.values():
             for a, b in btype.edges:
-                # Quick and dirty offset but should be fixed at the source
-                a = int(a)+1
-                b = int(b)+1
                 cmd.bond(f"ID {a}", f"ID {b}")
 
 
