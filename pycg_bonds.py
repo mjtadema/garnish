@@ -22,15 +22,19 @@
 
 
 from pymol import cmd, stored
-import string
 import networkx as nx
 from pathlib import Path
-import re, io
-import subprocess, shlex, shutil
+import re
+import io
+import subprocess
+import shlex
+import shutil
 from pdb import set_trace
 
+
 # Order might be important
-cmd.set("retain_order", 1)
+cmd.set("retain_order", 1)      # TODO: move to a better place
+
 
 def get_chain_bb(selection, chains):
     """
@@ -43,6 +47,7 @@ def get_chain_bb(selection, chains):
             c = "all"
         chain_bb[c] = cmd.identify(selection + f" and chain {c} and name BB")
     return chain_bb
+
 
 def parse_tpr(tpr_file, gmx=False):
     """
@@ -75,7 +80,7 @@ def parse_tpr(tpr_file, gmx=False):
     
     # Regex like cg_bonds to get relevant info
     p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|.*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
-    
+
     regexp_all = {
         'molid': re.compile("^\s+moltype\s+=\s+(\d+)"),
         'occs': re.compile("^\s+\#molecules\s+=\s+(\d+)"),
@@ -147,6 +152,7 @@ def parse_tpr(tpr_file, gmx=False):
     
     return molecules
 
+
 def rel_atom(selection):
     # Make a dict of all the atoms (to get effective relative atom numbering)
     rel_atom_dict = {}
@@ -154,6 +160,7 @@ def rel_atom(selection):
     for i, at in enumerate(atoms.atom):
         rel_atom_dict[i] = at.index
     return rel_atom_dict
+
 
 def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     """
@@ -173,7 +180,6 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     Therefore this script provides the 'cg_cartoon' function to represent only the backbone atoms as cartoon.
 
     """
-
     # Fix the view nicely
     cmd.hide("everything", selection)
     cmd.show_as("lines", selection + " and name BB")
@@ -241,6 +247,7 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     #    cmd.set("cartoon_trace_atoms")
     #    cg_cartoon(selection)
     #    cmd.extend('cg_cartoon', cg_cartoon)
+
 
 def cg_cartoon(selection):
     cmd.cartoon("automatic", selection)
