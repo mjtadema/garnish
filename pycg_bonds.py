@@ -24,8 +24,8 @@ from pymol import cmd, stored
 import string
 import networkx as nx
 from pathlib import Path
-import re,io
-import subprocess, shlex
+import re, io
+import subprocess, shlex, shutil
 
 # Order might be important
 cmd.set("retain_order", 1)
@@ -56,7 +56,8 @@ def get_chain_bb(selection, chains):
             break
     return chain_bb
 
-def parse_tpr(tpr_file):
+
+def parse_tpr(tpr_file, gmx=False):
     """
     Parses the gmx dump output of a tpr file into a networkx graph representation of the connectivity within the system
 
@@ -74,10 +75,16 @@ def parse_tpr(tpr_file):
 
     """
 
-    tpr = Path("tpr_file")
+    tpr = Path(tpr_file)
     assert tpr.is_file()
 
-    gmxdump = "/usr/bin/gmx dump -s "+str(tpr.absolute())
+    # get gmx executable
+    if not gmx:
+        gmx = shutil.which('gmx')
+    if not gmx:
+        raise FileNotFoundError('no gromacs executable found. Add it manually with gmx="PATH_TO_GMX"')
+
+    gmxdump = gmx + " dump -s " + str(tpr.absolute())
     gmxdump = subprocess.Popen(shlex.split(gmxdump), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
     p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|.*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
@@ -99,37 +106,46 @@ def parse_tpr(tpr_file):
         k: []
         for k in regexp_all.keys()
     }
-    
+
     molecules = {}
     
     reading_header = True
     for line in io.TextIOWrapper(gmxdump.stdout, encoding="utf-8"):
+        # only look at lines containing useful stuff
         if p_grep.match(line):
+            # when looking for a header, only care about these regexes
             if reading_header:
                 for k, p in regexp_all.items():
-                    if p.match(line):
-                        regex_data[k] = p.findall(line)[0]
-                if regexp_is_mol.match(line):
+                    matched = p.match(line)
+                    if matched:
+                        regex_data[k] = matched.group(1)
+                matched_mol = regexp_is_mol.match(line)
+                if matched_mol:
+                    # initialize everything for the first molecule
                     reading_header = False
-                    molid = regexp_is_mol.findall(line)[0]
+                    molid = matched_mol.group(1)
                     bonds = {
-                        k:[]
+                        k: []
                         for k in regexp_bonds
                     }
             else:
-                if not regexp_is_mol.match(line):
-                    for k, p in regexp_bonds.items():
-                        if p.match(line):
-                            bond = p.findall(line)[0]
-                            bonds[k].append(bond)
+                # parse bond data
+                for k, p in regexp_bonds.items():
+                    matched = p.match(line)
+                    if matched:
+                        bond = matched.group(1, 2)
+                        bonds[k].append(bond)
+                        # no need to parse for everything.
+                        break
+                # if none of the above was found, look for a header
                 else:
                     molecules[molid] = bonds
-                    molid = regexp_is_mol.findall(line)[0]
+                    molid = regexp_is_mol.search(line).group(1)
                     bonds = {
-                        k:[]
+                        k: []
                         for k in regexp_bonds
                     }
-                    
+
     for molid, molecule in molecules.items():
         for bondtype, bonds in molecule.items():
             g = nx.Graph()
@@ -196,3 +212,5 @@ def cg_cartoon(selection):
 
 
 cmd.extend('cg_bonds', cg_bonds)
+
+print(parse_tpr('em.tpr'))
