@@ -149,6 +149,13 @@ def parse_tpr(tpr_file):
     
     return molecules
 
+def rel_atom(selection):
+    # Make a dict of all the atoms (to get effective relative atom numbering)
+    rel_atom_dict = {}
+    atoms = cmd.get_model(selection)
+    for i, at in enumerate(atoms.atom):
+        rel_atom_dict[i] = at.index
+    return rel_atom_dict
 
 def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     """
@@ -192,10 +199,7 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         elastics_selector = selection+"_elastics"
         cmd.create(elastics_selector, selection)
         # Make a dict of all the atoms (to get effective relative atom numbering)
-        rel_atom = {}
-        atoms = cmd.get_model(selection)
-        for i, at in enumerate(atoms.atom):
-            rel_atom[i] = at.index
+        rel_atom_selection = rel_atom(selection)
         # Draw all the bonds
         for mol in molecules.values():
             for btype in ['bonds','constr']:
@@ -204,14 +208,14 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
                     b = rel_atom[b]
                     cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
             # Get relative atoms for elastics object
-            rel_atom = {}
+            rel_atom_elastics = rel_atom(elastics_selector)
             atoms = cmd.get_model(elastics_selector)
             for i, at in enumerate(atoms.atom):
-                rel_atom[i] = at.index
+                rel_atom_elastics[i] = at.index
             # Draw elastic network
             for a, b in mol['harmonic'].edges:
-                a = rel_atom[a]
-                b = rel_atom[b]
+                a = rel_atom_elastics[a]
+                b = rel_atom_elastics[b]
                 cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
             cmd.color("orange", elastics_selector)
 
