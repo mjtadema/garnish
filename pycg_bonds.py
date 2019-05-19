@@ -50,11 +50,13 @@ def get_chain_bb(selection, chains):
 
 def parse_tpr(tpr_file, gmx=False):
     """
-    Parses the gmx dump output of a tpr file into a networkx graph representation of the connectivity within the system
+    Parses the gmx dump output of a tpr file into a networkx graph representation
+    of the connectivity within the system
 
     input: a filename pointing to a tpr file
 
-    returns: a dictionary of molecules, each with a dictonary of graphs representing different connection types
+    returns: a dictionary of molecules, each with a dictonary of graphs representing
+    different connection types
 
     molecules {
         molid: bondtypes {
@@ -72,13 +74,15 @@ def parse_tpr(tpr_file, gmx=False):
     if not gmx:
         gmx = shutil.which('gmx')
     if not gmx:
-        raise FileNotFoundError('no gromacs executable found. Add it manually with gmx="PATH_TO_GMX"')
+        raise FileNotFoundError('no gromacs executable found.'
+                                'Add it manually with gmx="PATH_TO_GMX"')
 
     gmxdump = gmx + " dump -s " + str(tpr.absolute())
     gmxdump = subprocess.Popen(shlex.split(gmxdump), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
     # Regex like cg_bonds to get relevant info
-    p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|.*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
+    p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|"
+                        ".*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
 
     regexp_all = {
         'molid': re.compile("^\s+moltype\s+=\s+(\d+)"),
@@ -172,12 +176,14 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
 
     Without an aa_template, this function only adds bonds between the backbone beads
     so they can be nicely visualized using line or stick representation.
-    An aa_template provides a secondary structure assignment that can be used to draw a cartoon representation
+    An aa_template provides a secondary structure assignment that can be used to draw a
+    cartoon representation.
     The cartoon representation requires "cartoon_trace_atoms" to be set
     because the backbone beads are not recognized as amino acids by pymol.
-    Sadly this causes the cartoon representations of all structures to also include non backbone atoms.
-    Therefore this script provides the 'cg_cartoon' function to represent only the backbone atoms as cartoon.
-
+    Sadly this causes the cartoon representations of all structures to also include
+    non backbone atoms.
+    Therefore this script provides the 'cg_cartoon' function to represent only
+    the backbone atoms as cartoon.
     """
     # Fix the view nicely
     cmd.hide("everything", selection)
@@ -205,7 +211,7 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         rel_atom_selection = rel_atom(selection)
         # Draw all the bonds
         for mol in molecules.values():
-            for btype in ['bonds','constr']:
+            for btype in ['bonds', 'constr']:
                 for a, b in mol[btype].edges:
                     a = rel_atom_selection[a]
                     b = rel_atom_selection[b]
@@ -222,14 +228,14 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
                 cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
             cmd.color("orange", elastics_selector)
 
-    else:
-        chain_bb = get_chain_bb(selection, chains)
-        # For each chain, draw bonds between BB beads
-        for _, bbs in chain_bb.items():
-            for i in range(len(bbs)-1):
-                bb = bbs[i]
-                bb_next = bbs[i+1]
-                cmd.bond(f"ID {bb}", f"ID {bb_next}")
+    #else:
+    #    chain_bb = get_chain_bb(selection, chains)
+    #    # For each chain, draw bonds between BB beads
+    #    for _, bbs in chain_bb.items():
+    #        for i in range(len(bbs)-1):
+    #            bb = bbs[i]
+    #            bb_next = bbs[i+1]
+    #            cmd.bond(f"ID {bb}", f"ID {bb_next}")
 
     ## If an atomistic template was also given, extract ss information
     #if aa_template:
