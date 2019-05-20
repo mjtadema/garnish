@@ -79,30 +79,54 @@ def parse_tpr(tpr_file, gmx=False):
 
     regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
 
-    regexp_bonds = {
+    regexp_data = {
+        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"BB\"\}"),
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
         'constr': re.compile("^\s+\d+\s\w+=\d+\s\\(CONSTR\)\s+(\d+)\s+(\d+)"),
         'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\\(HARMONIC\)\s+(\d+)\s+(\d+)")
     }
 
-    bond_graphs = {k: [] for k in regexp_bonds}
+    bond_graphs = {
+        'bonds': [],
+        'constr': [],
+        'harmonic': []
+    }
+
+    backbone = []
 
     looking_for_header = True
-
     for line in gmxdump.stdout.split('\n'):
         # Skip as much lines as possible to be faster
         if looking_for_header:
             matched = regexp_header.match(line)
             if matched:
+                # if molecule header was found, start looking for actual data
                 looking_for_header = False
         elif not looking_for_header:
-            for k, p in regexp_bonds.items():
+            for k, p in regexp_data.items():
                 matched = p.match(line)
                 if matched:
-                    bond = tuple( int(b) for b in matched.group(1, 2))
-                    bond_graphs[k].append(bond)
+                    if k == 'atomnames':
+                        # save backbone beads for later fix of short elastic bonds
+                        backbone.append(int(matched.group(1)))
+                    else:
+                        bond = tuple( int(b) for b in matched.group(1, 2))
+                        bond_graphs[k].append(bond)
 
-    # Convert the lists of bonds to graphs
+    # move short range elastic bonds from `bonds` to `elastic` (protein fix)
+    short_elastic = []
+    for b in bond_graphs['bonds']:
+        # check if both beads are in backbone list
+        if b[0] in backbone and b[1] in backbone:
+            # if they're not adjacent, move bond to elastic and remove from here
+            if abs(backbone.index(b[0]) - backbone.index(b[1])) > 1:
+                short_elastic.append(b)
+
+    for b in short_elastic:
+        bond_graphs['bonds'].remove(b)
+        bond_graphs['harmonic'].append(b)
+
+    # Convert the lists of bonds to networkx graphs
     for bondtype, bonds in bond_graphs.items():
         g = nx.Graph()
         g.add_edges_from(list(bonds))
