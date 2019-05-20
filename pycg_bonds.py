@@ -48,6 +48,18 @@ def get_chain_bb(selection, chains):
     return chain_bb
 
 
+def get_gmx(gmx_bin):
+    """
+    if gmx binary is not given, find it. If it can't be found, raise an exception
+    """
+    if not gmx_bin:
+        gmx_bin = shutil.which('gmx')
+    if not gmx_bin:
+        raise FileNotFoundError('no gromacs executable found.'
+                                'Add it manually with gmx="PATH_TO_GMX"')
+    return gmx_bin
+
+
 def parse_tpr(tpr_file, gmx=False):
     """
     Parses the gmx dump output of a tpr file into a networkx graph representation
@@ -70,12 +82,7 @@ def parse_tpr(tpr_file, gmx=False):
     tpr = Path(tpr_file)
     assert tpr.is_file()
 
-    # get gmx executable
-    if not gmx:
-        gmx = shutil.which('gmx')
-    if not gmx:
-        raise FileNotFoundError('no gromacs executable found.'
-                                'Add it manually with gmx="PATH_TO_GMX"')
+    gmx = get_gmx(gmx)
 
     gmxdump = gmx + " dump -s " + str(tpr.absolute())
     gmxdump = subprocess.Popen(shlex.split(gmxdump), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
