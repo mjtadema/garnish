@@ -65,16 +65,13 @@ def parse_tpr(tpr_file, gmx=False):
 
     input: a filename pointing to a tpr file
 
-    returns: a dictionary of molecules, each with a dictonary of graphs representing
-    different connection types
+    returns: a dictionary of graphs representing different connection types
 
-    molecules {
-        molid: bondtypes {
-            bonds:      nx.Graph
-            constr:     nx.Graph
-            harmonic:   nx.Graph
-            }
-        }
+    bond_graphs {
+        bonds:      nx.Graph
+        constr:     nx.Graph
+        harmonic:   nx.Graph
+    }
 
     """
     tpr = Path(tpr_file)
@@ -84,82 +81,39 @@ def parse_tpr(tpr_file, gmx=False):
 
     gmxdump = subprocess.run([gmx, "dump", "-s", str(tpr.absolute())],
                              capture_output=True, text=True)
-    gmxdump = gmxdump.stdout.split('\n')
 
-    # Regex like cg_bonds to get relevant info
-    p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|"
-                        ".*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
+    regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
 
-    regexp_all = {
-        'molid': re.compile("^\s+moltype\s+=\s+(\d+)"),
-        'occs': re.compile("^\s+\#molecules\s+=\s+(\d+)"),
-        'bead_nr': re.compile("^\s+\#atoms_mol\s+=\s+(\d+)"),
-        'total_beads': re.compile("^\s+\#atoms+\s+=+\s+(\d+)"),
-    }
     regexp_bonds = {
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
         'constr': re.compile("^\s+\d+\s\w+=\d+\s\\(CONSTR\)\s+(\d+)\s+(\d+)"),
         'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\\(HARMONIC\)\s+(\d+)\s+(\d+)")
     }
-    regexp_is_mol = re.compile("^\s+moltype\s+\((\d+)\):")
-    
-    # Should probably return this as well
-    regex_data = {
-        k: []
-        for k in regexp_all.keys()
-    }
 
-    molecules = {}
-    
-    reading_header = True
-    for line in gmxdump:
-        # Filter for the relevant info
-        if p_grep.match(line):
-            # when looking for a header, only care about these regexes
-            if reading_header:
-                # Parse the meta info
-                for k, p in regexp_all.items():
-                    matched = p.match(line)
-                    if matched:
-                        regex_data[k] = matched.group(1)
-                matched_mol = regexp_is_mol.match(line)
-                if matched_mol:
-                    # If it started to describe a molecule, flag reading_header False
-                    # and initialise the first molecule
-                    reading_header = False
-                    molid = matched_mol.group(1)
-                    bonds = {
-                        k: []
-                        for k in regexp_bonds
-                    }
-            else:
-                # parse bond data
-                for k, p in regexp_bonds.items():
-                    matched = p.match(line)
-                    if matched:
-                        bond = matched.group(1, 2)
-                        # Cast to int
-                        bond = tuple( int(b) for b in bond )
-                        bonds[k].append(bond)
-                        # no need to parse for everything
-                        break
-                # if none of the above was found, look for a header
-                else:
-                    molecules[molid] = bonds
-                    molid = regexp_is_mol.search(line).group(1)
-                    bonds = {
-                        k: []
-                        for k in regexp_bonds
-                    }
+    bond_graphs = {k: [] for k in regexp_bonds}
+
+    looking_for_header = True
+
+    for line in gmxdump.stdout.split('\n'):
+        # Skip as much lines as possible to be faster
+        if looking_for_header:
+            matched = regexp_header.match(line)
+            if matched:
+                looking_for_header = False
+        elif not looking_for_header:
+            for k, p in regexp_bonds.items():
+                matched = p.match(line)
+                if matched:
+                    bond = tuple( int(b) for b in matched.group(1, 2))
+                    bond_graphs[k].append(bond)
 
     # Convert the lists of bonds to graphs
-    for molid, molecule in molecules.items():
-        for bondtype, bonds in molecule.items():
-            g = nx.Graph()
-            g.add_edges_from(list(bonds))
-            molecules[molid][bondtype] = g
-    
-    return molecules
+    for bondtype, bonds in bond_graphs.items():
+        g = nx.Graph()
+        g.add_edges_from(list(bonds))
+        bond_graphs[bondtype] = g
+
+    return bond_graphs
 
 
 def rel_atom(selection):
@@ -206,8 +160,8 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     #                for at in model.atom
     #            ]
 
-    # Get molecules
-    molecules = parse_tpr(tpr_file)
+    # Get bond graphs
+    bond_graphs = parse_tpr(tpr_file)
     
     if tpr_file:
         # Create dummy object to draw elastic bonds in
@@ -216,23 +170,22 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
         # Make a dict of all the atoms (to get effective relative atom numbering)
         rel_atom_selection = rel_atom(selection)
         # Draw all the bonds
-        for mol in molecules.values():
-            for btype in ['bonds', 'constr']:
-                for a, b in mol[btype].edges:
-                    a = rel_atom_selection[a]
-                    b = rel_atom_selection[b]
-                    cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+        for btype in ['bonds', 'constr']:
+            for a, b in bond_graphs[btype].edges:
+                a = rel_atom_selection[a]
+                b = rel_atom_selection[b]
+                cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
             # Get relative atoms for elastics object
-            rel_atom_elastics = rel_atom(elastics_selector)
-            atoms = cmd.get_model(elastics_selector)
-            for i, at in enumerate(atoms.atom):
-                rel_atom_elastics[i] = at.index
-            # Draw elastic network
-            for a, b in mol['harmonic'].edges:
-                a = rel_atom_elastics[a]
-                b = rel_atom_elastics[b]
-                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
-            cmd.color("orange", elastics_selector)
+        rel_atom_elastics = rel_atom(elastics_selector)
+        atoms = cmd.get_model(elastics_selector)
+        for i, at in enumerate(atoms.atom):
+            rel_atom_elastics[i] = at.index
+        # Draw elastic network
+        for a, b in bond_graphs['harmonic'].edges:
+            a = rel_atom_elastics[a]
+            b = rel_atom_elastics[b]
+            cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+        cmd.color("orange", elastics_selector)
 
     #else:
     #    chain_bb = get_chain_bb(selection, chains)
