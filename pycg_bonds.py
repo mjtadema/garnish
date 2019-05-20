@@ -27,11 +27,6 @@ from pathlib import Path
 import re
 import subprocess
 import shutil
-from pdb import set_trace
-
-# Order might be important
-cmd.set("retain_order", 1)      # TODO: move to a better place
-
 
 def get_chain_bb(selection, chains):
     """
@@ -145,6 +140,10 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     Therefore this script provides the 'cg_cartoon' function to represent only
     the backbone atoms as cartoon.
     """
+
+    # Order might be important
+    cmd.set("retain_order", 1)
+
     # Fix the view nicely
     cmd.hide("everything", selection)
     cmd.show_as("lines", selection + " and name BB")
