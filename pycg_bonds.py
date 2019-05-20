@@ -25,9 +25,7 @@ from pymol import cmd, stored
 import networkx as nx
 from pathlib import Path
 import re
-import io
 import subprocess
-import shlex
 import shutil
 from pdb import set_trace
 
@@ -84,9 +82,10 @@ def parse_tpr(tpr_file, gmx=False):
 
     gmx = get_gmx(gmx)
 
-    gmxdump = gmx + " dump -s " + str(tpr.absolute())
-    gmxdump = subprocess.Popen(shlex.split(gmxdump), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
+    gmxdump = subprocess.run([gmx, "dump", "-s", str(tpr.absolute())],
+                             capture_output=True, text=True)
+    gmxdump = gmxdump.stdout.split('\n')
+
     # Regex like cg_bonds to get relevant info
     p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|"
                         ".*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
@@ -113,7 +112,7 @@ def parse_tpr(tpr_file, gmx=False):
     molecules = {}
     
     reading_header = True
-    for line in io.TextIOWrapper(gmxdump.stdout, encoding="utf-8"):
+    for line in gmxdump:
         # Filter for the relevant info
         if p_grep.match(line):
             # when looking for a header, only care about these regexes
