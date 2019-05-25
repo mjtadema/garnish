@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os.path, sys
+sys.path.append(os.path.dirname(__file__))
 
 from pymol import cmd, stored
 import networkx as nx
@@ -35,16 +37,19 @@ from pdb import set_trace
 cmd.set("retain_order", 1)      # TODO: move to a better place
 
 
-def get_chain_bb(selection, chains):
+def get_chain_bb(selection):
     """
     returns dictionary with format {chain: list-of-bb-atoms}
     """
+    chains = cmd.get_chains(selection)
     chain_bb = {}
     for c in chains:
         # if chain is empty string, put it in the "all" bin
         if not c:
-            c = "all"
-        chain_bb[c] = cmd.identify(selection + f" and chain {c} and name BB")
+            c = "*"
+        # "chain all" didn't actually select anything
+        bb_id = cmd.identify(selection + f" and chain {c} and name BB")
+        chain_bb[c] = bb_id
     return chain_bb
 
 
@@ -161,7 +166,7 @@ def rel_atom(selection):
     return rel_atom_dict
 
 
-def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
+def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
@@ -175,10 +180,30 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     An aa_template provides a secondary structure assignment that can be used to draw a cartoon representation
     The cartoon representation requires "cartoon_trace_atoms" to be set
     because the backbone beads are not recognized as amino acids by pymol.
-    Sadly this causes the cartoon representations of all structures to also include non backbone atoms.
-    Therefore this script provides the 'cg_cartoon' function to represent only the backbone atoms as cartoon.
-
+    Sadly this causes the cartoon representations of all structures to also include
+    non backbone atoms.
+    Therefore this script provides the 'cg_cartoon' function to represent only
+    the backbone atoms as cartoon.
     """
+
+    selection = '(all)'
+    tpr_file = None
+
+    for arg in args:
+        maybe_tpr = Path(arg)
+        if maybe_tpr.is_file() and maybe_tpr.suffix() == ".tpr":
+            tpr_file = maybe_tpr
+        else:
+            # arg is probably a selection
+            selection = arg
+
+    #if not tpr_file and Path("./topol.tpr").exists():
+    #    tpr_file = Path("./topol.tpr")
+
+
+    # Order might be important
+    cmd.set("retain_order", 1)
+
     # Fix the view nicely
     cmd.hide("everything", selection)
     cmd.show_as("lines", selection + " and name BB")
@@ -194,42 +219,40 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     #                for at in model.atom
     #            ]
 
-    # Get molecules
-    molecules = parse_tpr(tpr_file)
-    
     if tpr_file:
+        # Get bond graphs
+        bond_graphs = parse_tpr(tpr_file)
         # Create dummy object to draw elastic bonds in
         elastics_selector = selection+"_elastics"
         cmd.create(elastics_selector, selection)
         # Make a dict of all the atoms (to get effective relative atom numbering)
         rel_atom_selection = rel_atom(selection)
         # Draw all the bonds
-        for mol in molecules.values():
+        for mol in bond_graphs.values():
             for btype in ['bonds','constr']:
                 for a, b in mol[btype].edges:
                     a = rel_atom_selection[a]
                     b = rel_atom_selection[b]
                     cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
             # Get relative atoms for elastics object
-            rel_atom_elastics = rel_atom(elastics_selector)
-            atoms = cmd.get_model(elastics_selector)
-            for i, at in enumerate(atoms.atom):
-                rel_atom_elastics[i] = at.index
-            # Draw elastic network
-            for a, b in mol['harmonic'].edges:
-                a = rel_atom_elastics[a]
-                b = rel_atom_elastics[b]
-                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
-            cmd.color("orange", elastics_selector)
+        rel_atom_elastics = rel_atom(elastics_selector)
+        atoms = cmd.get_model(elastics_selector)
+        for i, at in enumerate(atoms.atom):
+            rel_atom_elastics[i] = at.index
+        # Draw elastic network
+        for a, b in bond_graphs['harmonic'].edges:
+            a = rel_atom_elastics[a]
+            b = rel_atom_elastics[b]
+            cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+        cmd.color("orange", elastics_selector)
 
     else:
-        chain_bb = get_chain_bb(selection, chains)
+        chain_bb = get_chain_bb(selection)
         # For each chain, draw bonds between BB beads
         for _, bbs in chain_bb.items():
-            for i in range(len(bbs)-1):
-                bb = bbs[i]
-                bb_next = bbs[i+1]
-                cmd.bond(f"ID {bb}", f"ID {bb_next}")
+            bonds = [ (bbs[i], bbs[i+1]) for i in range(len(bbs) - 1) ]
+            for a, b in bonds:
+                cmd.bond(f"ID {a}", f"ID {b}")
 
     ## If an atomistic template was also given, extract ss information
     #if aa_template:
