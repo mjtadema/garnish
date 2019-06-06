@@ -21,14 +21,16 @@
 # SOFTWARE.
 
 import os.path, sys
-sys.path.append(os.path.dirname(__file__))
-
 from pymol import cmd, stored
 import networkx as nx
 from pathlib import Path
 import re
 import subprocess
 import shutil
+
+
+sys.path.append(os.path.dirname(__file__))
+
 
 def get_chain_bb(selection):
     """
@@ -72,7 +74,6 @@ def parse_tpr(tpr_file, gmx=False):
         constr:     nx.Graph
         harmonic:   nx.Graph
     }
-
     """
     tpr = Path(tpr_file)
     assert tpr.is_file()
@@ -115,7 +116,7 @@ def parse_tpr(tpr_file, gmx=False):
                         # save backbone beads for later fix of short elastic bonds
                         backbone.append(int(matched.group(1)))
                     else:
-                        bond = tuple( int(b) for b in matched.group(1, 2))
+                        bond = tuple(int(b) for b in matched.group(1, 2))
                         bond_graphs[k].append(bond)
 
     # move short range elastic bonds from `bonds` to `elastic` (protein fix)
@@ -238,7 +239,7 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
     #    cg_cartoon(selection)
     #    cmd.extend('cg_cartoon', cg_cartoon)
 
-#
+
 #def cg_cartoon(selection):
 #    cmd.cartoon("automatic", selection)
 #    cmd.show_as("cartoon", selection + " and (name BB or name CA)")
