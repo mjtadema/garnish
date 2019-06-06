@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
+import os.path, sys
 from pymol import cmd, stored
 import networkx as nx
 from pathlib import Path
@@ -28,16 +28,23 @@ import re
 import subprocess
 import shutil
 
-def get_chain_bb(selection, chains):
+
+sys.path.append(os.path.dirname(__file__))
+
+
+def get_chain_bb(selection):
     """
     returns dictionary with format {chain: list-of-bb-atoms}
     """
+    chains = cmd.get_chains(selection)
     chain_bb = {}
     for c in chains:
         # if chain is empty string, put it in the "all" bin
         if not c:
-            c = "all"
-        chain_bb[c] = cmd.identify(selection + f" and chain {c} and name BB")
+            c = "*"
+        # "chain all" didn't actually select anything
+        bb_id = cmd.identify(selection + f" and chain {c} and name BB")
+        chain_bb[c] = bb_id
     return chain_bb
 
 
@@ -67,7 +74,6 @@ def parse_tpr(tpr_file, gmx=False):
         constr:     nx.Graph
         harmonic:   nx.Graph
     }
-
     """
     tpr = Path(tpr_file)
     assert tpr.is_file()
@@ -82,8 +88,8 @@ def parse_tpr(tpr_file, gmx=False):
     regexp_data = {
         'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"BB\"\}"),
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
-        'constr': re.compile("^\s+\d+\s\w+=\d+\s\\(CONSTR\)\s+(\d+)\s+(\d+)"),
-        'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\\(HARMONIC\)\s+(\d+)\s+(\d+)")
+        'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
+        'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
     }
 
     bond_graphs = {
@@ -110,7 +116,7 @@ def parse_tpr(tpr_file, gmx=False):
                         # save backbone beads for later fix of short elastic bonds
                         backbone.append(int(matched.group(1)))
                     else:
-                        bond = tuple( int(b) for b in matched.group(1, 2))
+                        bond = tuple(int(b) for b in matched.group(1, 2))
                         bond_graphs[k].append(bond)
 
     # move short range elastic bonds from `bonds` to `elastic` (protein fix)
@@ -144,7 +150,7 @@ def rel_atom(selection):
     return rel_atom_dict
 
 
-def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
+def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
@@ -165,6 +171,17 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     the backbone atoms as cartoon.
     """
 
+    selection = 'all'
+    tpr_file = None
+
+    for arg in args:
+        maybe_tpr = Path(str(arg))
+        if maybe_tpr.is_file() and maybe_tpr.suffix == ".tpr":
+            tpr_file = maybe_tpr
+        else:
+            # arg is probably a selection
+            selection = arg
+
     # Order might be important
     cmd.set("retain_order", 1)
 
@@ -173,20 +190,9 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     cmd.show_as("lines", selection + " and name BB")
     cmd.util.cbc(selection)
 
-    ## Get all the chain identifiers and all the atoms
-    #chains = cmd.get_chains(selection)
-    #atoms_per_chain = {}
-    #for chain in chains:
-    #    model = cmd.get_model(selection+" and chain "+chain)
-    #    atoms_per_chain[chain] = [
-    #                at.index
-    #                for at in model.atom
-    #            ]
-
-    # Get bond graphs
-    bond_graphs = parse_tpr(tpr_file)
-    
-    if tpr_file:
+    if tpr_file: # Draw all the bonds based on tpr file
+        # Get bond graphs
+        bond_graphs = parse_tpr(tpr_file)
         # Create dummy object to draw elastic bonds in
         elastics_selector = selection+"_elastics"
         cmd.create(elastics_selector, selection)
@@ -210,14 +216,13 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
             cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
         cmd.color("orange", elastics_selector)
 
-    #else:
-    #    chain_bb = get_chain_bb(selection, chains)
-    #    # For each chain, draw bonds between BB beads
-    #    for _, bbs in chain_bb.items():
-    #        for i in range(len(bbs)-1):
-    #            bb = bbs[i]
-    #            bb_next = bbs[i+1]
-    #            cmd.bond(f"ID {bb}", f"ID {bb_next}")
+    else: # Draw simple bonds between backbone beads
+        chain_bb = get_chain_bb(selection)
+        # For each chain, draw bonds between BB beads
+        for _, bbs in chain_bb.items():
+            bonds = [ (bbs[i], bbs[i+1]) for i in range(len(bbs) - 1) ]
+            for a, b in bonds:
+                cmd.bond(f"ID {a}", f"ID {b}")
 
     ## If an atomistic template was also given, extract ss information
     #if aa_template:
@@ -235,9 +240,9 @@ def cg_bonds(selection='(all)', tpr_file=None): #aa_template=None):
     #    cmd.extend('cg_cartoon', cg_cartoon)
 
 
-def cg_cartoon(selection):
-    cmd.cartoon("automatic", selection)
-    cmd.show_as("cartoon", selection + " and (name BB or name CA)")
+#def cg_cartoon(selection):
+#    cmd.cartoon("automatic", selection)
+#    cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
 
 cmd.extend('cg_bonds', cg_bonds)
