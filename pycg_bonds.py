@@ -93,8 +93,8 @@ def parse_tpr(tpr_file, gmx=False):
     }
     regexp_bonds = {
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
-        'constr': re.compile("^\s+\d+\s\w+=\d+\s\\(CONSTR\)\s+(\d+)\s+(\d+)"),
-        'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\\(HARMONIC\)\s+(\d+)\s+(\d+)")
+        'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
+        'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
     }
     regexp_is_mol = re.compile("^\s+moltype\s+\((\d+)\):")
     
@@ -107,6 +107,8 @@ def parse_tpr(tpr_file, gmx=False):
     molecules = {}
     
     reading_header = True
+    bonds = ''
+    molid = 0
     for line in io.TextIOWrapper(gmxdump.stdout, encoding="utf-8"):
         # Filter for the relevant info
         if p_grep.match(line):
@@ -146,14 +148,17 @@ def parse_tpr(tpr_file, gmx=False):
                         k: []
                         for k in regexp_bonds
                     }
-
+    # When the stream ends, commit the last bonds dict to the current molecule
+    if bonds and molid:
+        molecules[molid] = bonds
     # Convert the lists of bonds to graphs
     for molid, molecule in molecules.items():
         for bondtype, bonds in molecule.items():
             g = nx.Graph()
             g.add_edges_from(list(bonds))
             molecules[molid][bondtype] = g
-    
+    if not molecules:
+        raise Exception("molecules shouldn't be empty")
     return molecules
 
 
@@ -235,15 +240,15 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
                     b = rel_atom_selection[b]
                     cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
             # Get relative atoms for elastics object
-        rel_atom_elastics = rel_atom(elastics_selector)
-        atoms = cmd.get_model(elastics_selector)
-        for i, at in enumerate(atoms.atom):
-            rel_atom_elastics[i] = at.index
-        # Draw elastic network
-        for a, b in bond_graphs['harmonic'].edges:
-            a = rel_atom_elastics[a]
-            b = rel_atom_elastics[b]
-            cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+            rel_atom_elastics = rel_atom(elastics_selector)
+            #atoms = cmd.get_model(elastics_selector)
+            #for i, at in enumerate(atoms.atom):
+            #    rel_atom_elastics[i] = at.index
+            # Draw elastic network
+            for a, b in mol['harmonic'].edges:
+                a = rel_atom_elastics[a]
+                b = rel_atom_elastics[b]
+                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
         cmd.color("orange", elastics_selector)
 
     else:
