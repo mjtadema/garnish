@@ -49,7 +49,7 @@ def get_chain_bb(selection):
             c = "*"
         # "chain all" didn't actually select anything
         bb_id = cmd.identify(selection + f" and chain {c} and name BB")
-        chain_bb[c] = bb_id
+        chain_bb[c] = sorted(bb_id)
     return chain_bb
 
 
