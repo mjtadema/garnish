@@ -27,15 +27,8 @@ from pymol import cmd, stored
 import networkx as nx
 from pathlib import Path
 import re
-import io
 import subprocess
-import shlex
 import shutil
-from pdb import set_trace
-
-# Order might be important
-cmd.set("retain_order", 1)      # TODO: move to a better place
-
 
 def get_chain_bb(selection):
     """
@@ -49,117 +42,102 @@ def get_chain_bb(selection):
             c = "*"
         # "chain all" didn't actually select anything
         bb_id = cmd.identify(selection + f" and chain {c} and name BB")
-        chain_bb[c] = sorted(bb_id)
+        chain_bb[c] = bb_id
     return chain_bb
+
+
+def get_gmx(gmx_bin):
+    """
+    if gmx binary is not given, find it. If it can't be found, raise an exception
+    """
+    if not gmx_bin:
+        gmx_bin = shutil.which('gmx')
+    if not gmx_bin:
+        raise FileNotFoundError('no gromacs executable found.'
+                                'Add it manually with gmx="PATH_TO_GMX"')
+    return gmx_bin
 
 
 def parse_tpr(tpr_file, gmx=False):
     """
-    Parses the gmx dump output of a tpr file into a networkx graph representation of the connectivity within the system
+    Parses the gmx dump output of a tpr file into a networkx graph representation
+    of the connectivity within the system
 
     input: a filename pointing to a tpr file
 
-    returns: a dictionary of molecules, each with a dictonary of graphs representing different connection types
+    returns: a dictionary of graphs representing different connection types
 
-    molecules {
-        molid: bondtypes {
-            bonds:      nx.Graph
-            constr:     nx.Graph
-            harmonic:   nx.Graph
-            }
-        }
+    bond_graphs {
+        bonds:      nx.Graph
+        constr:     nx.Graph
+        harmonic:   nx.Graph
+    }
 
     """
     tpr = Path(tpr_file)
     assert tpr.is_file()
 
-    # get gmx executable
-    if not gmx:
-        gmx = shutil.which('gmx')
-    if not gmx:
-        raise FileNotFoundError('no gromacs executable found. Add it manually with gmx="PATH_TO_GMX"')
+    gmx = get_gmx(gmx)
 
-    gmxdump = gmx + " dump -s " + str(tpr.absolute())
-    gmxdump = subprocess.Popen(shlex.split(gmxdump), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
-    # Regex like cg_bonds to get relevant info
-    p_grep = re.compile(".*\#atoms|.*\#beads.*|.*moltype.*|.*\#molecules.*|.*\(BONDS\).*|.*\(CONSTR\).*|.*\(HARMONIC\).*")
+    gmxdump = subprocess.run([gmx, "dump", "-s", str(tpr.absolute())],
+                             capture_output=True, text=True)
 
-    regexp_all = {
-        'molid': re.compile("^\s+moltype\s+=\s+(\d+)"),
-        'occs': re.compile("^\s+\#molecules\s+=\s+(\d+)"),
-        'bead_nr': re.compile("^\s+\#atoms_mol\s+=\s+(\d+)"),
-        'total_beads': re.compile("^\s+\#atoms+\s+=+\s+(\d+)"),
-    }
-    regexp_bonds = {
+    regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
+
+    regexp_data = {
+        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"BB\"\}"),
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
         'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
         'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
     }
-    regexp_is_mol = re.compile("^\s+moltype\s+\((\d+)\):")
-    
-    # Should probably return this as well
-    regex_data = {
-        k: []
-        for k in regexp_all.keys()
+
+    bond_graphs = {
+        'bonds': [],
+        'constr': [],
+        'harmonic': []
     }
 
-    molecules = {}
-    
-    reading_header = True
-    bonds = ''
-    molid = 0
-    for line in io.TextIOWrapper(gmxdump.stdout, encoding="utf-8"):
-        # Filter for the relevant info
-        if p_grep.match(line):
-            # when looking for a header, only care about these regexes
-            if reading_header:
-                # Parse the meta info
-                for k, p in regexp_all.items():
-                    matched = p.match(line)
-                    if matched:
-                        regex_data[k] = matched.group(1)
-                matched_mol = regexp_is_mol.match(line)
-                if matched_mol:
-                    # If it started to describe a molecule, flag reading_header False
-                    # and initialise the first molecule
-                    reading_header = False
-                    molid = matched_mol.group(1)
-                    bonds = {
-                        k: []
-                        for k in regexp_bonds
-                    }
-            else:
-                # parse bond data
-                for k, p in regexp_bonds.items():
-                    matched = p.match(line)
-                    if matched:
-                        bond = matched.group(1, 2)
-                        # Cast to int
-                        bond = tuple( int(b) for b in bond )
-                        bonds[k].append(bond)
-                        # no need to parse for everything
-                        break
-                # if none of the above was found, look for a header
-                else:
-                    molecules[molid] = bonds
-                    molid = regexp_is_mol.search(line).group(1)
-                    bonds = {
-                        k: []
-                        for k in regexp_bonds
-                    }
-    # When the stream ends, commit the last bonds dict to the current molecule
-    if bonds and molid:
-        molecules[molid] = bonds
-    # Convert the lists of bonds to graphs
-    for molid, molecule in molecules.items():
-        for bondtype, bonds in molecule.items():
-            g = nx.Graph()
-            g.add_edges_from(list(bonds))
-            molecules[molid][bondtype] = g
-    if not molecules:
-        raise Exception("molecules shouldn't be empty")
-    return molecules
+    backbone = []
+
+    looking_for_header = True
+    for line in gmxdump.stdout.split('\n'):
+        # Skip as much lines as possible to be faster
+        if looking_for_header:
+            matched = regexp_header.match(line)
+            if matched:
+                # if molecule header was found, start looking for actual data
+                looking_for_header = False
+        elif not looking_for_header:
+            for k, p in regexp_data.items():
+                matched = p.match(line)
+                if matched:
+                    if k == 'atomnames':
+                        # save backbone beads for later fix of short elastic bonds
+                        backbone.append(int(matched.group(1)))
+                    else:
+                        bond = tuple( int(b) for b in matched.group(1, 2))
+                        bond_graphs[k].append(bond)
+
+    # move short range elastic bonds from `bonds` to `elastic` (protein fix)
+    short_elastic = []
+    for b in bond_graphs['bonds']:
+        # check if both beads are in backbone list
+        if b[0] in backbone and b[1] in backbone:
+            # if they're not adjacent, move bond to elastic and remove from here
+            if abs(backbone.index(b[0]) - backbone.index(b[1])) > 1:
+                short_elastic.append(b)
+
+    for b in short_elastic:
+        bond_graphs['bonds'].remove(b)
+        bond_graphs['harmonic'].append(b)
+
+    # Convert the lists of bonds to networkx graphs
+    for bondtype, bonds in bond_graphs.items():
+        g = nx.Graph()
+        g.add_edges_from(list(bonds))
+        bond_graphs[bondtype] = g
+
+    return bond_graphs
 
 
 def rel_atom(selection):
@@ -182,7 +160,8 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
 
     Without an aa_template, this function only adds bonds between the backbone beads
     so they can be nicely visualized using line or stick representation.
-    An aa_template provides a secondary structure assignment that can be used to draw a cartoon representation
+    An aa_template provides a secondary structure assignment that can be used to draw a
+    cartoon representation.
     The cartoon representation requires "cartoon_trace_atoms" to be set
     because the backbone beads are not recognized as amino acids by pymol.
     Sadly this causes the cartoon representations of all structures to also include
@@ -191,7 +170,7 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
     the backbone atoms as cartoon.
     """
 
-    selection = '(all)'
+    selection = 'all'
     tpr_file = None
 
     for arg in args:
@@ -202,10 +181,6 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
             # arg is probably a selection
             selection = arg
 
-    #if not tpr_file and Path("./topol.tpr").exists():
-    #    tpr_file = Path("./topol.tpr")
-
-
     # Order might be important
     cmd.set("retain_order", 1)
 
@@ -214,17 +189,7 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
     cmd.show_as("lines", selection + " and name BB")
     cmd.util.cbc(selection)
 
-    ## Get all the chain identifiers and all the atoms
-    #chains = cmd.get_chains(selection)
-    #atoms_per_chain = {}
-    #for chain in chains:
-    #    model = cmd.get_model(selection+" and chain "+chain)
-    #    atoms_per_chain[chain] = [
-    #                at.index
-    #                for at in model.atom
-    #            ]
-
-    if tpr_file:
+    if tpr_file: # Draw all the bonds based on tpr file
         # Get bond graphs
         bond_graphs = parse_tpr(tpr_file)
         # Create dummy object to draw elastic bonds in
@@ -233,25 +198,24 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
         # Make a dict of all the atoms (to get effective relative atom numbering)
         rel_atom_selection = rel_atom(selection)
         # Draw all the bonds
-        for mol in bond_graphs.values():
-            for btype in ['bonds','constr']:
-                for a, b in mol[btype].edges:
-                    a = rel_atom_selection[a]
-                    b = rel_atom_selection[b]
-                    cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+        for btype in ['bonds', 'constr']:
+            for a, b in bond_graphs[btype].edges:
+                a = rel_atom_selection[a]
+                b = rel_atom_selection[b]
+                cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
             # Get relative atoms for elastics object
-            rel_atom_elastics = rel_atom(elastics_selector)
-            #atoms = cmd.get_model(elastics_selector)
-            #for i, at in enumerate(atoms.atom):
-            #    rel_atom_elastics[i] = at.index
-            # Draw elastic network
-            for a, b in mol['harmonic'].edges:
-                a = rel_atom_elastics[a]
-                b = rel_atom_elastics[b]
-                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+        rel_atom_elastics = rel_atom(elastics_selector)
+        atoms = cmd.get_model(elastics_selector)
+        for i, at in enumerate(atoms.atom):
+            rel_atom_elastics[i] = at.index
+        # Draw elastic network
+        for a, b in bond_graphs['harmonic'].edges:
+            a = rel_atom_elastics[a]
+            b = rel_atom_elastics[b]
+            cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
         cmd.color("orange", elastics_selector)
 
-    else:
+    else: # Draw simple bonds between backbone beads
         chain_bb = get_chain_bb(selection)
         # For each chain, draw bonds between BB beads
         for _, bbs in chain_bb.items():
@@ -274,10 +238,10 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
     #    cg_cartoon(selection)
     #    cmd.extend('cg_cartoon', cg_cartoon)
 
-
-def cg_cartoon(selection):
-    cmd.cartoon("automatic", selection)
-    cmd.show_as("cartoon", selection + " and (name BB or name CA)")
+#
+#def cg_cartoon(selection):
+#    cmd.cartoon("automatic", selection)
+#    cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
 
 cmd.extend('cg_bonds', cg_bonds)
