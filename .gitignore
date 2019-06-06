@@ -1,0 +1,10 @@
+# hide testing files
+*.gro
+*.pdb
+*.tpr
+*.itp
+*.top
+*.ndx
+*.mdp
+*.partition
+\#*\#
