@@ -150,7 +150,7 @@ def rel_atom(selection):
     return rel_atom_dict
 
 
-def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=None):
+def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_template=None):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
@@ -183,7 +183,11 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
     cmd.show_as("lines", selection + " and name BB")
     cmd.util.cbc(selection)
 
-    if tpr_file: # Draw all the bonds based on tpr file
+
+    # Draw all the bonds based on tpr file
+    if tpr_file:
+        # warn at the end if some atoms in the tpr are missing from the structure
+        warn = False
         # Get bond graphs
         bond_graphs = parse_tpr(tpr_file)
         # Create dummy object to draw elastic bonds in
@@ -194,9 +198,13 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
         # Draw all the bonds
         for btype in ['bonds', 'constr']:
             for a, b in bond_graphs[btype].edges:
-                a = rel_atom_selection[a]
-                b = rel_atom_selection[b]
-                cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+                try:
+                    a = rel_atom_selection[a]
+                    b = rel_atom_selection[b]
+                    cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+                except KeyError:
+                    print('hello')
+                    warn = True
             # Get relative atoms for elastics object
         rel_atom_elastics = rel_atom(elastics_selector)
         atoms = cmd.get_model(elastics_selector)
@@ -204,16 +212,24 @@ def cg_bonds(*args, **kwargs): #selection='(all)', tpr_file=None): #aa_template=
             rel_atom_elastics[i] = at.index
         # Draw elastic network
         for a, b in bond_graphs['harmonic'].edges:
-            a = rel_atom_elastics[a]
-            b = rel_atom_elastics[b]
-            cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+            try:
+                a = rel_atom_elastics[a]
+                b = rel_atom_elastics[b]
+                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+            except KeyError:
+                warn = True
         cmd.color("orange", elastics_selector)
+
+        # warn about missing atoms if needed.
+        if warn:
+            print('WARNING: some atoms present in the tpr file were not found in the loaded '
+                  'structure.\n Bonds containing those atoms were not drawn.')
 
     else: # Draw simple bonds between backbone beads
         chain_bb = get_chain_bb(selection)
         # For each chain, draw bonds between BB beads
         for _, bbs in chain_bb.items():
-            bonds = [ (bbs[i], bbs[i+1]) for i in range(len(bbs) - 1) ]
+            bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
             for a, b in bonds:
                 cmd.bond(f"ID {a}", f"ID {b}")
 
