@@ -80,63 +80,126 @@ def parse_tpr(tpr_file, gmx=False):
 
     gmx = get_gmx(gmx)
 
+    # dump tpr info in a string
     gmxdump = subprocess.run([gmx, "dump", "-s", str(tpr.absolute())],
                              capture_output=True, text=True)
+
+    # define regex patterns for later use
+    regexp_info = {
+        'molblock': re.compile('^\s+molblock\s+\((\d+)'),
+        'moltype': re.compile('^\s+moltype\s+=\s+(\d+)'),
+        'molcount': re.compile('^\s+#molecules\s+=\s+(\d+)'),
+        'endinfo': re.compile('^\s+ffparams')
+    }
 
     regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
 
     regexp_data = {
-        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"BB\"\}"),
+        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\w+)"),
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
         'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
         'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
     }
 
-    bond_graphs = {
-        'bonds': [],
-        'constr': [],
-        'harmonic': []
-    }
-
+    # initialize some stuff
+    mol_blocks = {}
+    mols_atom_n = {}
+    mols_bonds = {}
     backbone = []
+    info_section = True
 
-    looking_for_header = True
+    # split the dump in lines
     for line in gmxdump.stdout.split('\n'):
-        # Skip as much lines as possible to be faster
-        if looking_for_header:
+        # parse for molecule information in the first section
+        if info_section:
+            for k, p in regexp_info.items():
+                matched = p.match(line)
+                if matched:
+                    if k == 'molblock':
+                        # save current molecule block id
+                        curr_block_id = matched.group(1)
+                    if k == 'moltype':
+                        # save current molecule type id
+                        curr_mol_type = matched.group(1)
+                    if k == 'molcount':
+                        # create new entry in mol_blocks as {block_id: (moltype, molcount)}
+                        mol_blocks[curr_block_id] = (curr_mol_type, int(matched.group(1)))
+                    if k == 'endinfo':
+                        # stop parsing these patterns
+                        info_section = False
+        else:
+            # look for a new molecule definition
             matched = regexp_header.match(line)
             if matched:
-                # if molecule header was found, start looking for actual data
-                looking_for_header = False
-        elif not looking_for_header:
+                # if molecule header was found, initialize some stuff
+                # molecule type id
+                curr_mol_type = matched.group(1)
+                # corresponding bond dictionary
+                mols_bonds[curr_mol_type] = {
+                    'bonds': [],
+                    'constr': [],
+                    'harmonic': []
+                }
+                # corresponding number of atoms
+                mols_atom_n[curr_mol_type] = 0
             for k, p in regexp_data.items():
                 matched = p.match(line)
                 if matched:
                     if k == 'atomnames':
+                        mols_atom_n[curr_mol_type] += 1
                         # save backbone beads for later fix of short elastic bonds
-                        backbone.append(int(matched.group(1)))
+                        if matched.group(2) == "BB":
+                            backbone.append(int(matched.group(1)))
                     else:
                         bond = tuple(int(b) for b in matched.group(1, 2))
-                        bond_graphs[k].append(bond)
+                        mols_bonds[curr_mol_type][k].append(bond)
+
+    # now use the gathered info to generate a graph with all the bonds
+    bonds_dict = {}
+    offset = 0
+    # iterate over each block of molecules
+    for _, data in mol_blocks.items():
+        mol_type = data[0]
+        mol_count = data[1]
+        # initialize the bonds for mol_type, unless they already exists
+        bonds_dict[mol_type] = bonds_dict.get(mol_type, {})
+        # iterate based on molecule count
+        for i in range(mol_count):
+            # save bonds, then add to offset based on number of atoms in mol_type
+            for bond_type, bond_list in mols_bonds[mol_type].items():
+                # initialize list of bonds for bond_type, unless it already exists
+                bonds_dict[mol_type][bond_type] = bonds_dict[mol_type].get(bond_type, [])
+                for bond in bond_list:
+                    shifted_bond = tuple(atom_id + offset for atom_id in bond)
+                    bonds_dict[mol_type][bond_type].append(shifted_bond)
+            offset += mols_atom_n[mol_type]
 
     # move short range elastic bonds from `bonds` to `elastic` (protein fix)
-    short_elastic = []
-    for b in bond_graphs['bonds']:
-        # check if both beads are in backbone list
-        if b[0] in backbone and b[1] in backbone:
-            # if they're not adjacent, move bond to elastic and remove from here
-            if abs(backbone.index(b[0]) - backbone.index(b[1])) > 1:
-                short_elastic.append(b)
+    short_elastic = {
+        mol: [] for mol in mol_blocks
+    }
 
-    for b in short_elastic:
-        bond_graphs['bonds'].remove(b)
-        bond_graphs['harmonic'].append(b)
+    for mol, bonds in bonds_dict.items():
+        for b in bonds['bonds']:
+            # check if both beads are in backbone list
+            if b[0] in backbone and b[1] in backbone:
+                # if they're not adjacent, move bond to elastic and remove from here
+                if abs(backbone.index(b[0]) - backbone.index(b[1])) > 1:
+                    short_elastic[mol].append(b)
+
+    for mol, bonds in short_elastic.items():
+        for b in bonds:
+            bonds_dict[mol]['bonds'].remove(b)
+            bonds_dict[mol]['harmonic'].append(b)
 
     # Convert the lists of bonds to networkx graphs
-    for bondtype, bonds in bond_graphs.items():
-        g = nx.Graph()
-        g.add_edges_from(list(bonds))
-        bond_graphs[bondtype] = g
+    bond_graphs = {}
+    for mol, bonds in bonds_dict.items():
+        bond_graphs[mol] = {}
+        for bondtype, bond_list in bonds.items():
+            g = nx.Graph()
+            g.add_edges_from(list(bond_list))
+            bond_graphs[mol][bondtype] = g
 
     return bond_graphs
 
@@ -180,9 +243,8 @@ def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_templat
 
     # Fix the view nicely
     cmd.hide("everything", selection)
-    cmd.show_as("lines", selection + " and name BB")
+    cmd.show_as("lines", selection)
     cmd.util.cbc(selection)
-
 
     # Draw all the bonds based on tpr file
     if tpr_file:
@@ -197,27 +259,28 @@ def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_templat
         rel_atom_selection = rel_atom(selection)
         # Draw all the bonds
         for btype in ['bonds', 'constr']:
-            for a, b in bond_graphs[btype].edges:
-                try:
-                    a = rel_atom_selection[a]
-                    b = rel_atom_selection[b]
-                    cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
-                except KeyError:
-                    print('hello')
-                    warn = True
+            for _, bonds in bond_graphs.items():
+                for a, b in bonds[btype].edges:
+                    try:
+                        a = rel_atom_selection[a]
+                        b = rel_atom_selection[b]
+                        cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+                    except KeyError:
+                        warn = True
             # Get relative atoms for elastics object
         rel_atom_elastics = rel_atom(elastics_selector)
         atoms = cmd.get_model(elastics_selector)
         for i, at in enumerate(atoms.atom):
             rel_atom_elastics[i] = at.index
         # Draw elastic network
-        for a, b in bond_graphs['harmonic'].edges:
-            try:
-                a = rel_atom_elastics[a]
-                b = rel_atom_elastics[b]
-                cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
-            except KeyError:
-                warn = True
+        for _, bonds in bond_graphs.items():
+            for a, b in bonds['harmonic'].edges:
+                try:
+                    a = rel_atom_elastics[a]
+                    b = rel_atom_elastics[b]
+                    cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
+                except KeyError:
+                    warn = True
         cmd.color("orange", elastics_selector)
 
         # warn about missing atoms if needed.
@@ -225,7 +288,8 @@ def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_templat
             print('WARNING: some atoms present in the tpr file were not found in the loaded '
                   'structure.\n Bonds containing those atoms were not drawn.')
 
-    else: # Draw simple bonds between backbone beads
+    # Draw simple bonds between backbone beads
+    else:
         chain_bb = get_chain_bb(selection)
         # For each chain, draw bonds between BB beads
         for _, bbs in chain_bb.items():
