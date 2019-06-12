@@ -28,6 +28,7 @@ from pathlib import Path
 import re
 import subprocess
 import shutil
+from glob import glob
 
 
 sys.path.append(os.path.dirname(__file__))
@@ -309,7 +310,7 @@ def rel_atom(selection):
     return rel_atom_dict
 
 
-def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_template=None):
+def cg_bonds(file=None, selection='all'):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
 
@@ -322,21 +323,20 @@ def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_templat
     nicely visualized using line or stick representation.
     A tpr file provides topology information that can be used to draw side chain and elastic bonds.
     """
-
-    selection = 'all'
     tpr_file = None
     top_file = None
+    aa_template = None
+    maybe_file = Path(str(file))
 
-    for arg in args:
-        maybe_file = Path(str(arg))
-        if maybe_file.is_file():
-            if maybe_file.suffix == ".tpr":
-                tpr_file = maybe_file
-            elif maybe_file.suffix == ".top" or maybe_file.suffix == ".itp":
-                top_file = maybe_file
+    if maybe_file.is_file():
+        if maybe_file.suffix == ".tpr":
+            tpr_file = maybe_file
+        elif maybe_file.suffix == ".top" or maybe_file.suffix == ".itp":
+            top_file = maybe_file
+        elif maybe_file.suffix == ".pdb":
+            aa_template = maybe_file
         else:
-            # arg is probably a selection
-            selection = arg
+            raise TypeError(f'"{maybe_file.suffix}" is not a supported format.')
 
     # Order might be important
     cmd.set("retain_order", 1)  # TODO: is it really though?
@@ -401,25 +401,26 @@ def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_templat
             for a, b in bonds:
                 cmd.bond(f"ID {a}", f"ID {b}")
 
-    ## If an atomistic template was also given, extract ss information
-    #if aa_template:
-    #    cmd.load(aa_template, "aa_template")
-    #    stored.ss = []
-    #    stored.bfactors = []
-    #    cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
-    #    cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
-    #    for bb, ss in zip(stored.bfactors, stored.ss):
-    #        cmd.alter(f"ID {bb}", f'ss="{ss}"')
-    #    cmd.delete("aa_template")
-    #    cmd.center(selection)
-    #    cmd.set("cartoon_trace_atoms")
-    #    cg_cartoon(selection)
-    #    cmd.extend('cg_cartoon', cg_cartoon)
-
-
-#def cg_cartoon(selection):
-#    cmd.cartoon("automatic", selection)
-#    cmd.show_as("cartoon", selection + " and (name BB or name CA)")
+#    # If an atomistic template was given, extract ss information
+#    if aa_template:
+#        cmd.load(aa_template, "aa_template")
+#        stored.ss = []
+#        stored.bfactors = []
+#        cmd.iterate("aa_template and name CA", "stored.ss.append(ss)")
+#        cmd.iterate("aa_template and name CA", "stored.bfactors.append(b)")
+#        for bb, ss in zip(stored.bfactors, stored.ss):
+#            cmd.alter(f"ID {bb}", f'ss="{ss}"')
+#        cmd.delete("aa_template")
+#        cmd.center(selection)
+#        cmd.set("cartoon_trace_atoms")
+#        cmd.cartoon("automatic", selection)
+#        cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
 
 cmd.extend('cg_bonds', cg_bonds)
+
+# tab completion for the cg_bonds command
+useful_file_sc = cmd.Shortcut(glob('*.tpr') + glob('*.top') + glob('*.itp') + glob('*.pdb'))
+cmd.auto_arg[0]['cg_bonds'] = [useful_file_sc, 'input file', ', ']
+# here object_sc is more informative than selection_sc
+cmd.auto_arg[1]['cg_bonds'] = [cmd.object_sc, 'selection', '']
