@@ -11,7 +11,7 @@ to your pymolrc.
 
 # Usage
 ```
-cg_bonds [file [selection]]
+cg_bonds [file [, selection]]
 ```
 
 - `file`: a `.tpr` or `.top` file to parse and extract bond information from (default: None)
