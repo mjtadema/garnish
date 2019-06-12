@@ -231,8 +231,6 @@ def parse_top(top_file):
                     # save backbone beads for later fix of short elastic bonds
                     if match.group(2) == "BB":
                         backbone[curr_mol_type].append(int(match.group(1)) + id_fix)
-                    # TODO: backbone needs to be molecule_relative
-                    #       also above!
             if section == 'bonds':
                 match = regexp_bond.match(line)
                 if match:
