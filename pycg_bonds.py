@@ -416,7 +416,6 @@ def cg_bonds(file=None, selection='all'):
 #        cmd.cartoon("automatic", selection)
 #        cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
-
 cmd.extend('cg_bonds', cg_bonds)
 
 # tab completion for the cg_bonds command
