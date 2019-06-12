@@ -420,7 +420,9 @@ def cg_bonds(file=None, selection='all'):
 cmd.extend('cg_bonds', cg_bonds)
 
 # tab completion for the cg_bonds command
-useful_file_sc = cmd.Shortcut(glob('*.tpr') + glob('*.top') + glob('*.itp') + glob('*.pdb'))
+useful_file_sc = lambda: cmd.Shortcut(
+     glob('*/') + glob('*.tpr') + glob('*.top') + glob('*.itp')  # + glob('*.pdb')
+)
 cmd.auto_arg[0]['cg_bonds'] = [useful_file_sc, 'input file', ', ']
 # here object_sc is more informative than selection_sc
 cmd.auto_arg[1]['cg_bonds'] = [cmd.object_sc, 'selection', '']
