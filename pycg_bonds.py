@@ -97,7 +97,7 @@ def parse_tpr(tpr_file, gmx=None):
     mol_blocks = {}
     mols_atom_n = {}
     mols_bonds = {}
-    backbone = []
+    backbone = {}
     info_section = True
 
     # split the dump in lines
@@ -134,6 +134,8 @@ def parse_tpr(tpr_file, gmx=None):
                 }
                 # corresponding number of atoms
                 mols_atom_n[curr_mol_type] = 0
+                # corresponding backbone list
+                backbone[curr_mol_type] = []
             for k, p in regexp_data.items():
                 match = p.match(line)
                 if match:
@@ -141,7 +143,7 @@ def parse_tpr(tpr_file, gmx=None):
                         mols_atom_n[curr_mol_type] += 1
                         # save backbone beads for later fix of short elastic bonds
                         if match.group(2) == "BB":
-                            backbone.append(int(match.group(1)))
+                            backbone[curr_mol_type].append(int(match.group(1)))
                     else:
                         bond = tuple(int(b) for b in match.group(1, 2))
                         mols_bonds[curr_mol_type][k].append(bond)
@@ -176,7 +178,7 @@ def parse_top(top_file):
     mol_blocks = []
     mols_atom_n = {}
     mols_bonds = {}
-    backbone = []
+    backbone = {}
     section = False
 
     # we need to shift all the atom ids, because topologies start from 1 and not 0
@@ -195,7 +197,7 @@ def parse_top(top_file):
                 mol_blocks.extend(included[0])
                 mols_atom_n.update(included[1])
                 mols_bonds.update(included[2])
-                backbone.extend(included[3])
+                backbone.update(included[3])
             # look for a header in the form of `[something]`
             match = regexp_header.match(line)
             if match:
@@ -219,6 +221,8 @@ def parse_top(top_file):
                     }
                     # corresponding number of atoms
                     mols_atom_n[curr_mol_type] = 0
+                    # corresponding backbone list
+                    backbone[curr_mol_type] = []
             if section == 'atoms':
                 match = regexp_atom.match(line)
                 if match:
@@ -226,7 +230,7 @@ def parse_top(top_file):
                     mols_atom_n[curr_mol_type] += 1
                     # save backbone beads for later fix of short elastic bonds
                     if match.group(2) == "BB":
-                        backbone.append(int(match.group(1)) + id_fix)
+                        backbone[curr_mol_type].append(int(match.group(1)) + id_fix)
                     # TODO: backbone needs to be molecule_relative
                     #       also above!
             if section == 'bonds':
@@ -253,12 +257,15 @@ def make_graphs(mol_blocks, mols_atom_n, mols_bonds, backbone):
     """
     bonds_dict = {}
     offset = 0
+    fixed = False
     # iterate over each block of molecules
-    for block in mol_blocks:
-        mol_type = block[0]
-        mol_count = block[1]
+    for mol_type, mol_count in mol_blocks:
         # initialize the bonds for mol_type, unless they already exist
-        bonds_dict[mol_type] = bonds_dict.get(mol_type, {})
+        bonds_dict[mol_type] = bonds_dict.get(mol_type, {
+            'bonds': [],
+            'constr': [],
+            'harmonic': []
+        })
         # iterate based on molecule count
         for i in range(mol_count):
             # save bonds, then add to offset based on number of atoms in mol_type
@@ -266,25 +273,22 @@ def make_graphs(mol_blocks, mols_atom_n, mols_bonds, backbone):
                 # initialize list of bonds for bond_type, unless it already exists
                 bonds_dict[mol_type][bond_type] = bonds_dict[mol_type].get(bond_type, [])
                 for bond in bond_list:
+                    # check if the bond is of type `bond` and between two backbone beads
+                    if bond_type == 'bonds' and all(atom in backbone[mol_type] for atom in bond):
+                        atom1_idx = backbone[mol_type].index(bond[0])
+                        atom2_idx = backbone[mol_type].index(bond[1])
+                        # if it's also between two non-adjacent beads, move it to `elastic`
+                        if abs(atom1_idx - atom2_idx) > 1:
+                            bond_type = 'harmonic'
+                            fixed = True
                     shifted_bond = tuple(atom_id + offset for atom_id in bond)
                     bonds_dict[mol_type][bond_type].append(shifted_bond)
+                    # restore correct bond_type if the harmonic fix was used
+                    if fixed:
+                        bond_type = 'bonds'
+                        fixed = False
+
             offset += mols_atom_n[mol_type]
-
-    # move short range elastic bonds from `bonds` to `elastic` (protein fix)
-    short_elastic = {}
-    for mol, bonds in bonds_dict.items():
-        short_elastic[mol] = []
-        for b in bonds['bonds']:
-            # check if both beads are in backbone list
-            if b[0] in backbone and b[1] in backbone:
-                # if they're not adjacent, move bond to elastic and remove from here
-                if abs(backbone.index(b[0]) - backbone.index(b[1])) > 1:
-                    short_elastic[mol].append(b)
-
-    for mol, bonds in short_elastic.items():
-        for b in bonds:
-            bonds_dict[mol]['bonds'].remove(b)
-            bonds_dict[mol]['harmonic'].append(b)
 
     # Convert the lists of bonds to networkx graphs
     bond_graphs = {}
@@ -421,8 +425,3 @@ def cg_bonds(*args, **kwargs):  # selection='(all)', tpr_file=None): #aa_templat
 
 
 cmd.extend('cg_bonds', cg_bonds)
-
-stuff = parse_top('topol.top')
-stuff2 = parse_tpr(Path('em.tpr'))
-make_graphs(*stuff)
-make_graphs(*stuff2)
