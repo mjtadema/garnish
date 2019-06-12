@@ -337,6 +337,8 @@ def cg_bonds(file=None, selection='all'):
             aa_template = maybe_file
         else:
             raise TypeError(f'"{maybe_file.suffix}" is not a supported format.')
+    else:
+        raise FileNotFoundError(f'{maybe_file} does not exist.')
 
     # Order might be important
     cmd.set("retain_order", 1)  # TODO: is it really though?
