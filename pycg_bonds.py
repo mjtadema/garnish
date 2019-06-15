@@ -24,6 +24,7 @@ import os.path
 import sys
 from pymol import cmd  # stored
 import networkx as nx
+import numpy as np
 from pathlib import Path
 import re
 import subprocess
@@ -60,7 +61,6 @@ def get_gmx(gmx_bin):
         raise FileNotFoundError('no gromacs executable found.'
                                 'Add it manually with gmx="PATH_TO_GMX"')
     return gmx_bin
-
 
 def parse_tpr(tpr_file, gmx=None):
     """
@@ -172,7 +172,8 @@ def parse_top(top_file):
     regexp_info = re.compile('^\s*(\w+)\s+(\d+)')
     regexp_moltype = re.compile('^\s*(\S+)\s+(\d+)')
     regexp_atom = re.compile('^\s*(\d+)\s+\w+\s+\d+\s+\w+\s+(\w+)')
-    regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)')
+    regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
+    #regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)')
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
 
     # initialize some stuff
@@ -185,20 +186,43 @@ def parse_top(top_file):
     # we need to shift all the atom ids, because topologies start from 1 and not 0
     id_fix = -1
 
+    # Matthijs: Will try to make parse_top work internally with a dictionary
+    # After all the includes are done, we take the molecules and everything as defined by the moleculetypes in the top file
+
+    # Initialize an empty dictionary
+    # keys between in "[]" are variable
+    # The dictionary structure will be:
+    #
+    # included = {
+    #    [moleculetype]: {
+    #       id:             int(id nr to check with tpr),
+    #       n_molecules:    int(#molecules),
+    #       n_atoms:        int(#atoms),
+    #       connectivity: {
+    #           bonds:      list[ ( int(at#), int(at#) ) ],
+    #           constr:     list[ ( int(at#), int(at#) ) ],
+    #           harmonics:  list[ ( int(at#), int(at#) ) ],
+    #       },
+    #       backbone: list[ ( int(at#), int(at#) ) ] 
+    #    }
+    # }
+    #           
+    #           
+
     # read the file as lines and parse data
     with open(top_file, 'r') as f:
+        included = {} 
+        ID = 0 
+        system = {}
         for line in f.readlines():
             # look for included topologies
             match = regexp_include.match(line)
             if match:
                 include_path = Path(match.group(1))
                 # recursive call for included topologies
-                included = parse_top(include_path)
                 # add all the data we found to the main containers
-                mol_blocks.extend(included[0])
-                mols_atom_n.update(included[1])
-                mols_bonds.update(included[2])
-                backbone.update(included[3])
+                included.update(parse_top(include_path))
+
             # look for a header in the form of `[something]`
             match = regexp_header.match(line)
             if match:
@@ -207,97 +231,117 @@ def parse_top(top_file):
                 # save amount of molecules for each block
                 match = regexp_info.match(line)
                 if match:
-                    mol_blocks.append((match.group(1), int(match.group(2))))
+                    # Add this molecule to the system
+                    moleculetype = match.group(1)
+                    n_molecules = int(match.group(2))
+                    system[moleculetype] = included[moleculetype]
+                    system[moleculetype]['n_molecules'] = n_molecules
+                    system[moleculetype]['id'] = ID
+                    ID += 1
             if section == 'moleculetype':
                 match = regexp_moltype.match(line)
                 if match:
                     # if molecule header was found, initialize some stuff
                     # molecule type id
                     curr_mol_type = match.group(1)
-                    # corresponding bond dictionary
-                    mols_bonds[curr_mol_type] = {
-                        'bonds': [],
-                        'constr': [],
-                        'harmonic': []
-                    }
-                    # corresponding number of atoms
-                    mols_atom_n[curr_mol_type] = 0
-                    # corresponding backbone list
-                    backbone[curr_mol_type] = []
+                    # main molecule dictionary
+                    included[curr_mol_type] = {
+                            'connectivity': {
+                                'bonds': [],
+                                'constr': [],
+                                'harmonic': []
+                                },
+                            'n_atoms': 0,
+                            'backbone': []
+                            }
             if section == 'atoms':
                 match = regexp_atom.match(line)
                 if match:
+                    atom_id = int(match.group(1))
+                    atom_name = match.group(2)
                     # increment atom count for current molecule type
-                    mols_atom_n[curr_mol_type] += 1
+                    included[curr_mol_type]['n_atoms'] += 1
                     # save backbone beads for later fix of short elastic bonds
-                    if match.group(2) == "BB":
-                        backbone[curr_mol_type].append(int(match.group(1)) + id_fix)
+                    if atom_name == "BB":
+                        included[curr_mol_type]['backbone'].append(atom_id + id_fix)
             if section == 'bonds':
                 match = regexp_bond.match(line)
                 if match:
                     # save bond, fixing the atom ids to match those of pymol
                     bond = tuple(int(b) + id_fix for b in match.group(1, 2))
-                    mols_bonds[curr_mol_type]['bonds'].append(bond)
+                    included[curr_mol_type]['connectivity']['bonds'].append(bond)
             if section == 'constraints':
                 match = regexp_constr.match(line)
                 if match:
                     # save constraint, fixing the atom ids to match those of pymol
                     constr = tuple(int(b) + id_fix for b in match.group(1, 2))
-                    mols_bonds[curr_mol_type]['constr'].append(constr)
+                    included[curr_mol_type]['connectivity']['constr'].append(constr)
 
-    return mol_blocks, mols_atom_n, mols_bonds, backbone
+    # Iterate over molecules, fix elastic bonds where necessary
+    for key in system.keys():
+        molecule = system[key]
+        try:
+            bond_list = molecule['connectivity']['bonds']
+        except IndexError as e:
+            breakpoint()
+            raise e
+        tmp_harmonics = []
+        tmp_bonds = []
+        backbone = molecule['backbone']
+        
+        bond = bond_list.pop()
+        while bond_list:
+            bond_type = tmp_bonds
+            if all(atom in backbone for atom in bond):
+                at_a, at_b = bond
+                at_a, at_b = int(at_a), int(at_b)
+                atom1_idx = backbone.index(at_a)
+                atom2_idx = backbone.index(at_b)
+                # if it's also between two non-adjacent beads, move it to `elastic`
+                if abs(atom1_idx - atom2_idx) > 1:
+                    bond_type = tmp_harmonics
+            bond_type.append(bond)
+            bond = bond_list.pop()
+        molecule['connectivity']['bonds'] = tmp_bonds
+        molecule['connectivity']['harmonic'] = tmp_harmonics
 
+    if not system:
+        return included
+    else:
+        return system
 
-def make_graphs(mol_blocks, mols_atom_n, mols_bonds, backbone):
+def make_graphs(system):
     """
     uses data gathered from file parsing to correctly identify bonds for each molecule
 
     returns graph representations of all the bonds in the system
     """
-    bonds_dict = {}
-    offset = 0
-    fixed = False
-    # iterate over each block of molecules
-    for mol_type, mol_count in mol_blocks:
-        # initialize the bonds for mol_type, unless they already exist
-        bonds_dict[mol_type] = bonds_dict.get(mol_type, {
-            'bonds': [],
-            'constr': [],
-            'harmonic': []
-        })
-        # iterate based on molecule count
-        for i in range(mol_count):
-            # save bonds, then add to offset based on number of atoms in mol_type
-            for bond_type, bond_list in mols_bonds[mol_type].items():
-                # initialize list of bonds for bond_type, unless it already exists
-                bonds_dict[mol_type][bond_type] = bonds_dict[mol_type].get(bond_type, [])
-                for bond in bond_list:
-                    # check if the bond is of type `bond` and between two backbone beads
-                    if bond_type == 'bonds' and all(atom in backbone[mol_type] for atom in bond):
-                        atom1_idx = backbone[mol_type].index(bond[0])
-                        atom2_idx = backbone[mol_type].index(bond[1])
-                        # if it's also between two non-adjacent beads, move it to `elastic`
-                        if abs(atom1_idx - atom2_idx) > 1:
-                            bond_type = 'harmonic'
-                            fixed = True
-                    shifted_bond = tuple(atom_id + offset for atom_id in bond)
-                    bonds_dict[mol_type][bond_type].append(shifted_bond)
-                    # restore correct bond_type if the harmonic fix was used
-                    if fixed:
-                        bond_type = 'bonds'
-                        fixed = False
-
-            offset += mols_atom_n[mol_type]
-
     # Convert the lists of bonds to networkx graphs
     bond_graphs = {}
-    for mol, bonds in bonds_dict.items():
-        bond_graphs[mol] = {}
-        for bondtype, bond_list in bonds.items():
-            g = nx.Graph()
-            g.add_edges_from(list(bond_list))
-            bond_graphs[mol][bondtype] = g
 
+    offset = 0
+    for moleculetype, molecule in system.items():
+        n_mol = molecule['n_molecules']
+        n_at = molecule['n_atoms']
+        connectivity = molecule['connectivity']
+        # Need to have numpy arrays to apply offset
+        try:
+            connectivity = { btype: np.array(bonds) for btype, bonds in connectivity.items() }
+        except ValueError as e:
+            unpacked = connectivity.items()
+            breakpoint()
+            raise e
+
+        for i in range(n_mol):
+            key = moleculetype+f"_{i}"
+            bond_graphs[key] = {}
+            for btype, bonds in connectivity.items():
+                g = nx.Graph()
+                g.add_edges_from(bonds + offset)
+                bond_graphs[key][btype] = g
+            offset += n_at
+
+    breakpoint()
     return bond_graphs
 
 
@@ -357,7 +401,7 @@ def cg_bonds(file=None, selection='all'):
             parsed_data = parse_tpr(tpr_file)
         elif top_file:
             parsed_data = parse_top(top_file)
-        bond_graphs = make_graphs(*parsed_data)
+        bond_graphs = make_graphs(parsed_data)
         # Create dummy object to draw elastic bonds in
         elastics_selector = selection+"_elastics"
         cmd.create(elastics_selector, selection)
