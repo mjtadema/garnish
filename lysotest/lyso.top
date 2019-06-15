@@ -1,0 +1,13 @@
+#include "martini.itp"
+
+#define RUBBER_BANDS
+
+#include "lyso.itp"
+
+[ system ]
+; name
+Martini system from lyso_aa.pdb
+
+[ molecules ]
+; name        number
+Protein_A 	 1
