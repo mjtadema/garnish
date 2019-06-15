@@ -334,15 +334,10 @@ def make_graphs(system):
         n_at = molecule['n_atoms']
         connectivity = molecule['connectivity']
         # Need to have numpy arrays to apply offset
-        try:
-            connectivity = { btype: np.array(bonds) for btype, bonds in connectivity.items() }
-        except ValueError as e:
-            unpacked = connectivity.items()
-            breakpoint()
-            raise e
+        connectivity = { btype: np.array(bonds) for btype, bonds in connectivity.items() }
 
         for i in range(n_mol):
-            key = moleculetype+f"_{i}"
+            key = str(molecule['id'])+f"_{i}"
             bond_graphs[key] = {}
             for btype, bonds in connectivity.items():
                 g = nx.Graph()

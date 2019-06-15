@@ -22,11 +22,9 @@ def test_parse():
     tpr_graphs = make_graphs(tpr_output)
     top_graphs = make_graphs(top_output)
 
-    # Dictionaries should be sorted in python3 but probably
-    # we will have to come up with something more robust...
-    for tpr, top in zip(tpr_graphs.values(), top_graphs.values()):
-        for bt in tpr.keys():
-            if not all(bond in tpr[bt].edges() for bond in top[bt].edges()):
+    for mol in tpr_graphs.keys():
+        for bt in tpr_graphs[mol].keys():
+            if not all(bond in tpr_graphs[mol][bt].edges() for bond in top_graphs[mol][bt].edges()):
                  raise Exception("Molecules are not equal!")
 
 test_parse()
