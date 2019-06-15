@@ -405,36 +405,38 @@ def cg_bonds(file=None, selection='all'):
         elif top_file:
             parsed_data = parse_top(top_file)
         bond_graphs = make_graphs(parsed_data)
-        # Create dummy object to draw elastic bonds in
-        elastics_selector = selection+"_elastics"
-        cmd.create(elastics_selector, selection)
-        # Make a dict of all the atoms (to get effective relative atom numbering)
-        rel_atom_selection = rel_atom(selection)
-        # Draw all the bonds
-        for btype in ['bonds', 'constr']:
+        selection_objects = cmd.get_object_list(selection)
+        for obj in selection_objects:
+            elastics_obj = selection+"_elastics"
+            # Create dummy object to draw elastic bonds in
+            cmd.copy(elastics_obj, obj)
+            # Make a dict of all the atoms (to get effective relative atom numbering)
+            rel_atom_selection = rel_atom(obj)
+            # Draw all the bonds
+            for btype in ['bonds', 'constr']:
+                for _, bonds in bond_graphs.items():
+                    for a, b in bonds[btype].edges:
+                        try:
+                            a = rel_atom_selection[a]
+                            b = rel_atom_selection[b]
+                            cmd.bond(f"({obj} and ID {a})", f"({obj} and ID {b})")
+                        except KeyError:
+                            warn = True
+                # Get relative atoms for elastics object
+            rel_atom_elastics = rel_atom(elastics_obj)
+            atoms = cmd.get_model(elastics_obj)
+            for i, at in enumerate(atoms.atom):
+                rel_atom_elastics[i] = at.index
+            # Draw elastic network
             for _, bonds in bond_graphs.items():
-                for a, b in bonds[btype].edges:
+                for a, b in bonds['harmonic'].edges:
                     try:
-                        a = rel_atom_selection[a]
-                        b = rel_atom_selection[b]
-                        cmd.bond(f"{selection} and ID {a}", f"{selection} and ID {b}")
+                        a = rel_atom_elastics[a]
+                        b = rel_atom_elastics[b]
+                        cmd.bond(f"({elastics_obj} and ID {a})", f"({elastics_obj} and ID {b})")
                     except KeyError:
                         warn = True
-            # Get relative atoms for elastics object
-        rel_atom_elastics = rel_atom(elastics_selector)
-        atoms = cmd.get_model(elastics_selector)
-        for i, at in enumerate(atoms.atom):
-            rel_atom_elastics[i] = at.index
-        # Draw elastic network
-        for _, bonds in bond_graphs.items():
-            for a, b in bonds['harmonic'].edges:
-                try:
-                    a = rel_atom_elastics[a]
-                    b = rel_atom_elastics[b]
-                    cmd.bond(f"{elastics_selector} and ID {a}", f"{elastics_selector} and ID {b}")
-                except KeyError:
-                    warn = True
-        cmd.color("orange", elastics_selector)
+            cmd.color("orange", elastics_obj)
 
         # warn about missing atoms if needed.
         if warn:
