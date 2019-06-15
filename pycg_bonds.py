@@ -225,7 +225,8 @@ def parse_top(top_file):
             # look for included topologies
             match = regexp_include.match(line)
             if match:
-                include_path = Path(match.group(1))
+                include_file = match.group(1)
+                include_path = Path(str(top_file.parent)+"/"+include_file)
                 # recursive call for included topologies
                 # add all the data we found to the main containers
                 included.update(parse_top(include_path))
