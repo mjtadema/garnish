@@ -101,6 +101,8 @@ def parse_tpr(tpr_file, gmx=None):
     backbone = {}
     info_section = True
 
+    system = {}
+
     # split the dump in lines
     for line in gmxdump.stdout.split('\n'):
         # parse for molecule information in the first section
@@ -114,9 +116,14 @@ def parse_tpr(tpr_file, gmx=None):
                     if k == 'moltype':
                         # save current molecule type id
                         curr_mol_type = match.group(1)
+                        system[curr_mol_type] = {
+                                'id': int(curr_block_id),
+                                }
+
                     if k == 'molcount':
                         # create new entry in mol_blocks as {block_id: (moltype, molcount)}
-                        mol_blocks[curr_block_id] = (curr_mol_type, int(match.group(1)))
+                        n_molecules = int(match.group(1))
+                        system[curr_mol_type]['n_molecules'] = n_molecules
                     if k == 'endinfo':
                         # stop parsing these patterns
                         info_section = False
@@ -128,31 +135,31 @@ def parse_tpr(tpr_file, gmx=None):
                 # molecule type id
                 curr_mol_type = match.group(1)
                 # corresponding bond dictionary
-                mols_bonds[curr_mol_type] = {
+                system[curr_mol_type]['connectivity'] = {
                     'bonds': [],
                     'constr': [],
                     'harmonic': []
                 }
                 # corresponding number of atoms
-                mols_atom_n[curr_mol_type] = 0
+                system[curr_mol_type]['n_atoms'] = 0
                 # corresponding backbone list
-                backbone[curr_mol_type] = []
-            for k, p in regexp_data.items():
+                system[curr_mol_type]['backbone'] = []
+
+            for key, p in regexp_data.items():
                 match = p.match(line)
                 if match:
-                    if k == 'atomnames':
-                        mols_atom_n[curr_mol_type] += 1
+                    if key == 'atomnames':
+                        system[curr_mol_type]['n_atoms'] += 1
                         # save backbone beads for later fix of short elastic bonds
-                        if match.group(2) == "BB":
-                            backbone[curr_mol_type].append(int(match.group(1)))
+                        at_nr = int(match.group(1))
+                        at_name = match.group(2)
+                        if at_name == "BB":
+                            system[curr_mol_type]['backbone'].append(at_nr)
                     else:
+                        bond_type = key
                         bond = tuple(int(b) for b in match.group(1, 2))
-                        mols_bonds[curr_mol_type][k].append(bond)
-
-    # sanitize some stuff
-    mol_blocks = list(mol_blocks.values())
-
-    return mol_blocks, mols_atom_n, mols_bonds, backbone
+                        system[curr_mol_type]['connectivity'][bond_type].append(bond)
+    return system
 
 
 def parse_top(top_file):
@@ -277,6 +284,18 @@ def parse_top(top_file):
                     constr = tuple(int(b) + id_fix for b in match.group(1, 2))
                     included[curr_mol_type]['connectivity']['constr'].append(constr)
 
+    if not system:
+        return included
+    else:
+        return system
+
+def make_graphs(system):
+    """
+    uses data gathered from file parsing to correctly identify bonds for each molecule
+
+    returns graph representations of all the bonds in the system
+    """
+
     # Iterate over molecules, fix elastic bonds where necessary
     for key in system.keys():
         molecule = system[key]
@@ -285,7 +304,7 @@ def parse_top(top_file):
         except IndexError as e:
             breakpoint()
             raise e
-        tmp_harmonics = []
+        tmp_harmonics = molecule['connectivity']['harmonic']
         tmp_bonds = []
         backbone = molecule['backbone']
         
@@ -305,17 +324,6 @@ def parse_top(top_file):
         molecule['connectivity']['bonds'] = tmp_bonds
         molecule['connectivity']['harmonic'] = tmp_harmonics
 
-    if not system:
-        return included
-    else:
-        return system
-
-def make_graphs(system):
-    """
-    uses data gathered from file parsing to correctly identify bonds for each molecule
-
-    returns graph representations of all the bonds in the system
-    """
     # Convert the lists of bonds to networkx graphs
     bond_graphs = {}
 
@@ -341,7 +349,6 @@ def make_graphs(system):
                 bond_graphs[key][btype] = g
             offset += n_at
 
-    breakpoint()
     return bond_graphs
 
 
