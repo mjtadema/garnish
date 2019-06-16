@@ -102,7 +102,10 @@ def parse_tpr(tpr_file, gmx=None):
     backbone = {}
     info_section = True
 
-    system = {}
+    system = {
+        'blocks': {},
+        'topology': {},
+    }
 
     # split the dump in lines
     for line in gmxdump.stdout.split('\n'):
@@ -114,17 +117,15 @@ def parse_tpr(tpr_file, gmx=None):
                     if k == 'molblock':
                         # save current molecule block id
                         curr_block_id = match.group(1)
+                        system['blocks'][curr_block_id] = {}
                     if k == 'moltype':
                         # save current molecule type id
                         curr_mol_type = match.group(1)
-                        system[curr_mol_type] = {
-                                'id': int(curr_block_id),
-                                }
-
+                        system['blocks'][curr_block_id]['moltype'] = curr_mol_type
+                        system['topology'][curr_mol_type] = {}
                     if k == 'molcount':
-                        # create new entry in mol_blocks as {block_id: (moltype, molcount)}
                         n_molecules = int(match.group(1))
-                        system[curr_block_id]['n_molecules'] = n_molecules
+                        system['blocks'][curr_block_id]['n_molecules'] = n_molecules
                     if k == 'endinfo':
                         # stop parsing these patterns
                         info_section = False
@@ -134,33 +135,32 @@ def parse_tpr(tpr_file, gmx=None):
             if match:
                 # if molecule header was found, initialize some stuff
                 # molecule type id
-                curr_block_id = match.group(1)
+                curr_mol_type = match.group(1)
                 # corresponding bond dictionary
-                system[curr_block_id]['connectivity'] = {
+                system['topology'][curr_mol_type]['connectivity'] = {
                     'bonds': [],
                     'constr': [],
                     'harmonic': []
                 }
                 # corresponding number of atoms
-                system[curr_block_id]['n_atoms'] = 0
+                system['topology'][curr_mol_type]['n_atoms'] = 0
                 # corresponding backbone list
-                system[curr_block_id]['backbone'] = []
+                system['topology'][curr_mol_type]['backbone'] = []
 
             for key, p in regexp_data.items():
                 match = p.match(line)
                 if match:
                     if key == 'atomnames':
-                        system[curr_block_id]['n_atoms'] += 1
+                        system['topology'][curr_mol_type]['n_atoms'] += 1
                         # save backbone beads for later fix of short elastic bonds
                         at_nr = int(match.group(1))
                         at_name = match.group(2)
                         if at_name == "BB":
-                            system[curr_block_id]['backbone'].append(at_nr)
+                            system['topology'][curr_mol_type]['backbone'].append(at_nr)
                     else:
                         bond_type = key
                         bond = tuple(int(b) for b in match.group(1, 2))
-                        system[curr_block_id]['connectivity'][bond_type].append(bond)
-    breakpoint()
+                        system['topology'][curr_mol_type]['connectivity'][bond_type].append(bond)
     return system
 
 
@@ -301,8 +301,8 @@ def make_graphs(system):
     """
 
     # Iterate over molecules, fix elastic bonds where necessary
-    for key in system.keys():
-        molecule = system[key]
+    for key in system['topology'].keys():
+        molecule = system['topology'][key]
         bond_list = molecule['connectivity']['bonds']
         tmp_harmonics = molecule['connectivity']['harmonic']
         tmp_bonds = []
@@ -330,15 +330,16 @@ def make_graphs(system):
     bond_graphs = {}
 
     offset = 0
-    for moleculetype, molecule in system.items():
-        n_mol = molecule['n_molecules']
-        n_at = molecule['n_atoms']
-        connectivity = molecule['connectivity']
+    for block_id, block in system['blocks'].items():
+        moltype = block['moltype']
+        n_mol = block['n_molecules']
+        n_at = system['topology'][moltype]['n_atoms']
+        connectivity = system['topology'][moltype]['connectivity']
         # Need to have numpy arrays to apply offset
         connectivity = {btype: np.array(bonds) for btype, bonds in connectivity.items()}
 
         for i in range(n_mol):
-            key = str(molecule['id'])+f"_{i}"
+            key = f"{block_id}_{moltype}_{i}"
             bond_graphs[key] = {}
             for btype, bonds in connectivity.items():
                 g = nx.Graph()
@@ -416,6 +417,8 @@ def cg_bonds(file=None, selection='all'):
                             cmd.bond(f"({obj} and ID {a})", f"({obj} and ID {b})")
                         except KeyError:
                             warn = True
+            # Get relative atoms for elastics object
+            atoms = cmd.get_model(elastics_obj)
             # Draw elastic network
             for _, bonds in bond_graphs.items():
                 for i, (a, b) in enumerate(bonds['harmonic'].edges):
