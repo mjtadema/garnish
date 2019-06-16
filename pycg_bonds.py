@@ -316,7 +316,8 @@ def make_graphs(system):
         connectivity = {btype: np.array(bonds) for btype, bonds in connectivity.items()}
 
         for i in range(n_mol):
-            key = f"{block_id}_{moltype}_{i}"
+            #key = f"{block_id}_{moltype}_{i}"
+            key = f"{block_id}_{i}"
             bond_graphs[key] = {}
             for btype, bonds in connectivity.items():
                 g = nx.Graph()

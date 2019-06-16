@@ -22,6 +22,9 @@ def test_parse():
     tpr_graphs = make_graphs(tpr_output)
     top_graphs = make_graphs(top_output)
 
+    if not all(key in tpr_graphs.keys() for key in top_graphs.keys()):
+        print(list(tpr_graphs.keys()), list(top_graphs.keys()))
+        raise Exception("Graphs don't describe the same molecules")
     for mol in tpr_graphs.keys():
         for bt in tpr_graphs[mol].keys():
             if not all(bond in tpr_graphs[mol][bt].edges() for bond in top_graphs[mol][bt].edges()):
