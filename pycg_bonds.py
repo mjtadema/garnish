@@ -309,7 +309,6 @@ def make_graphs(system):
             try:
                 bond = bond_list.pop()
             except IndexError as e:
-                breakpoint()
                 raise e
             bond_type = tmp_bonds
             if all(atom in backbone for atom in bond):
