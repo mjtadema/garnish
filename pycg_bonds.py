@@ -299,7 +299,6 @@ def make_graphs(system):
 
     # Iterate over molecules, fix elastic bonds where necessary
     for key in system.keys():
-        breakpoint()
         molecule = system[key]
         bond_list = molecule['connectivity']['bonds']
         tmp_harmonics = molecule['connectivity']['harmonic']
