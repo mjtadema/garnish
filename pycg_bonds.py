@@ -123,7 +123,7 @@ def parse_tpr(tpr_file, gmx=None):
                     if k == 'molcount':
                         # create new entry in mol_blocks as {block_id: (moltype, molcount)}
                         n_molecules = int(match.group(1))
-                        system[curr_mol_type]['n_molecules'] = n_molecules
+                        system[curr_block_id]['n_molecules'] = n_molecules
                     if k == 'endinfo':
                         # stop parsing these patterns
                         info_section = False
@@ -133,32 +133,33 @@ def parse_tpr(tpr_file, gmx=None):
             if match:
                 # if molecule header was found, initialize some stuff
                 # molecule type id
-                curr_mol_type = match.group(1)
+                curr_block_id = match.group(1)
                 # corresponding bond dictionary
-                system[curr_mol_type]['connectivity'] = {
+                system[curr_block_id]['connectivity'] = {
                     'bonds': [],
                     'constr': [],
                     'harmonic': []
                 }
                 # corresponding number of atoms
-                system[curr_mol_type]['n_atoms'] = 0
+                system[curr_block_id]['n_atoms'] = 0
                 # corresponding backbone list
-                system[curr_mol_type]['backbone'] = []
+                system[curr_block_id]['backbone'] = []
 
             for key, p in regexp_data.items():
                 match = p.match(line)
                 if match:
                     if key == 'atomnames':
-                        system[curr_mol_type]['n_atoms'] += 1
+                        system[curr_block_id]['n_atoms'] += 1
                         # save backbone beads for later fix of short elastic bonds
                         at_nr = int(match.group(1))
                         at_name = match.group(2)
                         if at_name == "BB":
-                            system[curr_mol_type]['backbone'].append(at_nr)
+                            system[curr_block_id]['backbone'].append(at_nr)
                     else:
                         bond_type = key
                         bond = tuple(int(b) for b in match.group(1, 2))
-                        system[curr_mol_type]['connectivity'][bond_type].append(bond)
+                        system[curr_block_id]['connectivity'][bond_type].append(bond)
+    breakpoint()
     return system
 
 
@@ -412,13 +413,9 @@ def cg_bonds(file=None, selection='all'):
                             cmd.bond(f"({obj} and ID {a})", f"({obj} and ID {b})")
                         except KeyError:
                             warn = True
-                # Get relative atoms for elastics object
-            atoms = cmd.get_model(elastics_obj)
-            for i, at in enumerate(atoms.atom):
-                rel_atom_elastics[i] = at.index
             # Draw elastic network
             for _, bonds in bond_graphs.items():
-                for a, b in bonds['harmonic'].edges:
+                for i, (a, b) in enumerate(bonds['harmonic'].edges):
                     try:
                         a += 1
                         b += 1
