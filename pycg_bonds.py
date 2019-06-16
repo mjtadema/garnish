@@ -375,7 +375,9 @@ def cg_bonds(file=None, selection='all'):
     aa_template = None
     maybe_file = Path(str(file))
 
-    if maybe_file.is_file():
+    if file == None:
+        pass
+    elif maybe_file.is_file():
         if maybe_file.suffix == ".tpr":
             tpr_file = maybe_file
         elif maybe_file.suffix == ".top" or maybe_file.suffix == ".itp":
@@ -389,6 +391,7 @@ def cg_bonds(file=None, selection='all'):
 
     # Order might be important
     cmd.set("retain_order", 1)  # TODO: is it really though?
+    # Yes, pymol otherwise sorts the atoms, if you then save the file you get a different result.
 
     # Fix the view nicely
     cmd.hide("everything", selection)
