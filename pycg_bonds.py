@@ -408,7 +408,7 @@ def cg_bonds(file=None, selection='all'):
         bond_graphs = make_graphs(parsed_data)
         selection_objects = cmd.get_object_list(selection)
         for obj in selection_objects:
-            elastics_obj = selection+"_elastics"
+            elastics_obj = obj+"_elastics"
             # Create dummy object to draw elastic bonds in
             cmd.copy(elastics_obj, obj)
             # Make a dict of all the atoms (to get effective relative atom numbering)
