@@ -270,6 +270,7 @@ def parse_top(top_file):
     return system
 
 
+
 def make_graphs(system):
     """
     uses data gathered from file parsing to correctly identify bonds for each molecule
