@@ -62,6 +62,7 @@ def get_gmx(gmx_bin):
                                 'Add it manually with gmx="PATH_TO_GMX"')
     return gmx_bin
 
+
 def parse_tpr(tpr_file, gmx=None):
     """
     parses the gmx dump of a tpr file and returns useful information on the system
@@ -290,6 +291,7 @@ def parse_top(top_file):
     else:
         return system
 
+
 def make_graphs(system):
     """
     uses data gathered from file parsing to correctly identify bonds for each molecule
@@ -304,7 +306,7 @@ def make_graphs(system):
         tmp_harmonics = molecule['connectivity']['harmonic']
         tmp_bonds = []
         backbone = molecule['backbone']
-        
+
         while bond_list:
             try:
                 bond = bond_list.pop()
@@ -332,7 +334,7 @@ def make_graphs(system):
         n_at = molecule['n_atoms']
         connectivity = molecule['connectivity']
         # Need to have numpy arrays to apply offset
-        connectivity = { btype: np.array(bonds) for btype, bonds in connectivity.items() }
+        connectivity = {btype: np.array(bonds) for btype, bonds in connectivity.items()}
 
         for i in range(n_mol):
             key = str(molecule['id'])+f"_{i}"
@@ -344,6 +346,7 @@ def make_graphs(system):
             offset += n_at
 
     return bond_graphs
+
 
 def cg_bonds(file=None, selection='all'):
     """
@@ -412,7 +415,7 @@ def cg_bonds(file=None, selection='all'):
                             cmd.bond(f"({obj} and ID {a})", f"({obj} and ID {b})")
                         except KeyError:
                             warn = True
-                # Get relative atoms for elastics object
+            # Get relative atoms for elastics object
             atoms = cmd.get_model(elastics_obj)
             for i, at in enumerate(atoms.atom):
                 rel_atom_elastics[i] = at.index
@@ -455,6 +458,7 @@ def cg_bonds(file=None, selection='all'):
 #        cmd.set("cartoon_trace_atoms")
 #        cmd.cartoon("automatic", selection)
 #        cmd.show_as("cartoon", selection + " and (name BB or name CA)")
+
 
 cmd.extend('cg_bonds', cg_bonds)
 
