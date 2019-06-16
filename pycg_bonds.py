@@ -97,12 +97,7 @@ def parse_tpr(tpr_file, gmx=None):
     }
 
     # initialize some stuff
-    mol_blocks = {}
-    mols_atom_n = {}
-    mols_bonds = {}
-    backbone = {}
     info_section = True
-
     system = {
         'blocks': {},
         'topology': {},
@@ -196,37 +191,10 @@ def parse_top(top_file):
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
 
     # initialize some stuff
-    mol_blocks = []
-    mols_atom_n = {}
-    mols_bonds = {}
-    backbone = {}
     section = False
 
     # we need to shift all the atom ids, because topologies start from 1 and not 0
     id_fix = -1
-
-    # Matthijs: Will try to make parse_top work internally with a dictionary
-    # After all the includes are done, we take the molecules and everything as defined by the moleculetypes in the top file
-
-    # Initialize an empty dictionary
-    # keys between in "[]" are variable
-    # The dictionary structure will be:
-    #
-    # included = {
-    #    [moleculetype]: {
-    #       id:             int(id nr to check with tpr),
-    #       n_molecules:    int(#molecules),
-    #       n_atoms:        int(#atoms),
-    #       connectivity: {
-    #           bonds:      list[ ( int(at#), int(at#) ) ],
-    #           constr:     list[ ( int(at#), int(at#) ) ],
-    #           harmonics:  list[ ( int(at#), int(at#) ) ],
-    #       },
-    #       backbone: list[ ( int(at#), int(at#) ) ] 
-    #    }
-    # }
-    #           
-    #           
 
     # read the file as lines and parse data
     with open(top_file, 'r') as f:
@@ -478,9 +446,3 @@ useful_file_sc = lambda: cmd.Shortcut(
 cmd.auto_arg[0]['cg_bonds'] = [useful_file_sc, 'input file', ', ']
 # here object_sc is more informative than selection_sc
 cmd.auto_arg[1]['cg_bonds'] = [cmd.object_sc, 'selection', '']
-
-#make_graphs(parse_top(Path('topol.top')))
-#make_graphs(parse_tpr(Path('em.tpr')))
-
-import pprint
-pprint.pprint(parse_top(Path('topol.top')))
