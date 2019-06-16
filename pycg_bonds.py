@@ -299,18 +299,19 @@ def make_graphs(system):
 
     # Iterate over molecules, fix elastic bonds where necessary
     for key in system.keys():
+        breakpoint()
         molecule = system[key]
-        try:
-            bond_list = molecule['connectivity']['bonds']
-        except IndexError as e:
-            breakpoint()
-            raise e
+        bond_list = molecule['connectivity']['bonds']
         tmp_harmonics = molecule['connectivity']['harmonic']
         tmp_bonds = []
         backbone = molecule['backbone']
         
-        bond = bond_list.pop()
         while bond_list:
+            try:
+                bond = bond_list.pop()
+            except IndexError as e:
+                breakpoint()
+                raise e
             bond_type = tmp_bonds
             if all(atom in backbone for atom in bond):
                 at_a, at_b = bond
@@ -321,7 +322,6 @@ def make_graphs(system):
                 if abs(atom1_idx - atom2_idx) > 1:
                     bond_type = tmp_harmonics
             bond_type.append(bond)
-            bond = bond_list.pop()
         molecule['connectivity']['bonds'] = tmp_bonds
         molecule['connectivity']['harmonic'] = tmp_harmonics
 
