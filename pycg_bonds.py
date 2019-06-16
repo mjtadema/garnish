@@ -64,6 +64,15 @@ def get_gmx(gmx_bin):
     return gmx_bin
 
 
+def update_recursive(base_dict, input_dict):
+    for k, v in input_dict.items():
+        if isinstance(v, collections.Mapping):
+            base_dict[k] = update_recursive(base_dict.get(k, {}), v)
+        else:
+            base_dict[k] = v
+    return base_dict
+
+
 def parse_tpr(tpr_file, gmx=None):
     """
     parses the gmx dump of a tpr file and returns useful information on the system
@@ -158,15 +167,6 @@ def parse_tpr(tpr_file, gmx=None):
                         bond = tuple(int(b) for b in match.group(1, 2))
                         system['topology'][curr_mol_type]['connectivity'][bond_type].append(bond)
     return system
-
-
-def update_recursive(base_dict, input_dict):
-    for k, v in input_dict.items():
-        if isinstance(v, collections.Mapping):
-            base_dict[k] = update_recursive(base_dict.get(k, {}), v)
-        else:
-            base_dict[k] = v
-    return base_dict
 
 
 def parse_top(top_file):
@@ -268,7 +268,6 @@ def parse_top(top_file):
                     system['topology'][curr_mol_type]['connectivity']['constr'].append(constr)
 
     return system
-
 
 
 def make_graphs(system):
