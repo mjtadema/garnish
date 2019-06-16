@@ -345,16 +345,6 @@ def make_graphs(system):
 
     return bond_graphs
 
-
-def rel_atom(selection):
-    # Make a dict of all the atoms (to get effective relative atom numbering)
-    rel_atom_dict = {}
-    atoms = cmd.get_model(selection)
-    for i, at in enumerate(atoms.atom):
-        rel_atom_dict[i] = at.index
-    return rel_atom_dict
-
-
 def cg_bonds(file=None, selection='all'):
     """
     Allow a cg structure to be visualized in pymol like an atomistic structure.
@@ -412,19 +402,17 @@ def cg_bonds(file=None, selection='all'):
             # Create dummy object to draw elastic bonds in
             cmd.copy(elastics_obj, obj)
             # Make a dict of all the atoms (to get effective relative atom numbering)
-            rel_atom_selection = rel_atom(obj)
             # Draw all the bonds
             for btype in ['bonds', 'constr']:
                 for _, bonds in bond_graphs.items():
                     for a, b in bonds[btype].edges:
                         try:
-                            a = rel_atom_selection[a]
-                            b = rel_atom_selection[b]
+                            a += 1
+                            b += 1
                             cmd.bond(f"({obj} and ID {a})", f"({obj} and ID {b})")
                         except KeyError:
                             warn = True
                 # Get relative atoms for elastics object
-            rel_atom_elastics = rel_atom(elastics_obj)
             atoms = cmd.get_model(elastics_obj)
             for i, at in enumerate(atoms.atom):
                 rel_atom_elastics[i] = at.index
@@ -432,8 +420,8 @@ def cg_bonds(file=None, selection='all'):
             for _, bonds in bond_graphs.items():
                 for a, b in bonds['harmonic'].edges:
                     try:
-                        a = rel_atom_elastics[a]
-                        b = rel_atom_elastics[b]
+                        a += 1
+                        b += 1
                         cmd.bond(f"({elastics_obj} and ID {a})", f"({elastics_obj} and ID {b})")
                     except KeyError:
                         warn = True
