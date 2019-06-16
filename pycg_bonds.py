@@ -30,6 +30,7 @@ import re
 import subprocess
 import shutil
 from glob import glob
+import collections
 
 
 sys.path.append(os.path.dirname(__file__))
@@ -164,6 +165,15 @@ def parse_tpr(tpr_file, gmx=None):
     return system
 
 
+def update_recursive(base_dict, input_dict):
+    for k, v in input_dict.items():
+        if isinstance(v, collections.Mapping):
+            base_dict[k] = update_recursive(base_dict.get(k, {}), v)
+        else:
+            base_dict[k] = v
+    return base_dict
+
+
 def parse_top(top_file):
     """
     parses a topology file and returns useful information on the system
@@ -220,9 +230,11 @@ def parse_top(top_file):
 
     # read the file as lines and parse data
     with open(top_file, 'r') as f:
-        included = {} 
-        ID = 0 
-        system = {}
+        ID = 0
+        system = {
+            'blocks': {},
+            'topology': {},
+        }
         for line in f.readlines():
             # look for included topologies
             match = regexp_include.match(line)
@@ -231,8 +243,7 @@ def parse_top(top_file):
                 include_path = Path(str(top_file.parent)+"/"+include_file)
                 # recursive call for included topologies
                 # add all the data we found to the main containers
-                included.update(parse_top(include_path))
-
+                update_recursive(system, parse_top(include_path))
             # look for a header in the form of `[something]`
             match = regexp_header.match(line)
             if match:
@@ -242,11 +253,12 @@ def parse_top(top_file):
                 match = regexp_info.match(line)
                 if match:
                     # Add this molecule to the system
-                    moleculetype = match.group(1)
+                    curr_mol_type = match.group(1)
                     n_molecules = int(match.group(2))
-                    system[moleculetype] = included[moleculetype]
-                    system[moleculetype]['n_molecules'] = n_molecules
-                    system[moleculetype]['id'] = ID
+                    curr_block_id = str(ID)
+                    system['blocks'][curr_block_id] = {}
+                    system['blocks'][curr_block_id]['moltype'] = curr_mol_type
+                    system['blocks'][curr_block_id]['n_molecules'] = n_molecules
                     ID += 1
             if section == 'moleculetype':
                 match = regexp_moltype.match(line)
@@ -255,7 +267,7 @@ def parse_top(top_file):
                     # molecule type id
                     curr_mol_type = match.group(1)
                     # main molecule dictionary
-                    included[curr_mol_type] = {
+                    system['topology'][curr_mol_type] = {
                             'connectivity': {
                                 'bonds': [],
                                 'constr': [],
@@ -270,27 +282,24 @@ def parse_top(top_file):
                     atom_id = int(match.group(1))
                     atom_name = match.group(2)
                     # increment atom count for current molecule type
-                    included[curr_mol_type]['n_atoms'] += 1
+                    system['topology'][curr_mol_type]['n_atoms'] += 1
                     # save backbone beads for later fix of short elastic bonds
                     if atom_name == "BB":
-                        included[curr_mol_type]['backbone'].append(atom_id + id_fix)
+                        system['topology'][curr_mol_type]['backbone'].append(atom_id + id_fix)
             if section == 'bonds':
                 match = regexp_bond.match(line)
                 if match:
                     # save bond, fixing the atom ids to match those of pymol
                     bond = tuple(int(b) + id_fix for b in match.group(1, 2))
-                    included[curr_mol_type]['connectivity']['bonds'].append(bond)
+                    system['topology'][curr_mol_type]['connectivity']['bonds'].append(bond)
             if section == 'constraints':
                 match = regexp_constr.match(line)
                 if match:
                     # save constraint, fixing the atom ids to match those of pymol
                     constr = tuple(int(b) + id_fix for b in match.group(1, 2))
-                    included[curr_mol_type]['connectivity']['constr'].append(constr)
+                    system['topology'][curr_mol_type]['connectivity']['constr'].append(constr)
 
-    if not system:
-        return included
-    else:
-        return system
+    return system
 
 
 def make_graphs(system):
@@ -469,3 +478,9 @@ useful_file_sc = lambda: cmd.Shortcut(
 cmd.auto_arg[0]['cg_bonds'] = [useful_file_sc, 'input file', ', ']
 # here object_sc is more informative than selection_sc
 cmd.auto_arg[1]['cg_bonds'] = [cmd.object_sc, 'selection', '']
+
+#make_graphs(parse_top(Path('topol.top')))
+#make_graphs(parse_tpr(Path('em.tpr')))
+
+import pprint
+pprint.pprint(parse_top(Path('topol.top')))
