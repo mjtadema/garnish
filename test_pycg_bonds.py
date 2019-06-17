@@ -1,40 +1,34 @@
-import pycg_bonds as target
-from pymol import cmd, stored, CmdException
-import os
+#!/usr/bin/env python3
 
-def test_get_chain_bb():
-    cmd.reinitialize()
-    selection = "cg_oligomer_nochains"
-    cmd.load(selection+".pdb")
-    chains = cmd.get_chains(selection)
-    target.get_chain_bb(selection, chains)
+from pycg_bonds import parse_tpr
+from pycg_bonds import parse_top
+from pycg_bonds import make_graphs
+from pathlib import Path
+import networkx as nx
 
-test_list = [
-        test_get_chain_bb
-        ]
+def test_parse():
+    """
+    Crude integration test for parsing logic.
+    Since we have two different parsing functions, we can compare results.
+    The resulting graphs from these should be identical.
+    If they are not identical the test will raise an exception
+    """
+    mismatches = []
+    tpr_file = Path("lysotest/lyso.tpr")
+    top_file = Path("lysotest/lyso.top")
+    #mol_blocks, mols_atom_n, mols_bonds, backbone
+    tpr_output = parse_tpr(tpr_file)
+    top_output = parse_top(top_file)
+    tpr_graphs = make_graphs(tpr_output)
+    top_graphs = make_graphs(top_output)
 
-def run_tests(test_functions):
-    # Fail count
-    global fail_count
-    fails = []
+    if not all(key in tpr_graphs.keys() for key in top_graphs.keys()):
+        print(list(tpr_graphs.keys()), list(top_graphs.keys()))
+        raise Exception("Graphs don't describe the same molecules")
+    for mol in tpr_graphs.keys():
+        for bt in tpr_graphs[mol].keys():
+            if not all(bond in tpr_graphs[mol][bt].edges() for bond in top_graphs[mol][bt].edges()):
+                 raise Exception("Molecules are not equal!")
 
-    # Move to testdir
-    os.chdir("test")
-
-    # Run all the tests, add exception to fails
-    try:
-        for test_func in test_functions:
-            test_func()
-    except Exception as e:
-        fails.append(e)
-    except CmdException as e:
-        fails.append(e)
-    
-    # Report results
-    print(str(len(fails))+" tests failed")
-    if fails:
-        for e in fails:
-            print(e)
-        exit(1)
-
-run_tests(test_list)
+test_parse()
+print("Tests passed successfully")
