@@ -65,6 +65,9 @@ def get_gmx(gmx_bin):
 
 
 def update_recursive(base_dict, input_dict):
+    """
+    similar to builtin dict.update, but recursively updates all sub-dictionaries
+    """
     for k, v in input_dict.items():
         if isinstance(v, collections.Mapping):
             base_dict[k] = update_recursive(base_dict.get(k, {}), v)
@@ -77,10 +80,7 @@ def parse_tpr(tpr_file, gmx=None):
     """
     parses the gmx dump of a tpr file and returns useful information on the system
 
-    returns: - mol_blocks: number of molecules per type
-             - mols_atom_n: number of atoms in each molecule type
-             - mols_bonds: bonds dictionary
-             - backbones: backbone beads
+    returns a dictionary describing the system
     """
     gmx = get_gmx(gmx)
 
@@ -124,11 +124,12 @@ def parse_tpr(tpr_file, gmx=None):
                         curr_block_id = match.group(1)
                         system['blocks'][curr_block_id] = {}
                     if k == 'moltype':
-                        # save current molecule type id
+                        # save molecule type id of current block and init topology for it
                         curr_mol_type = match.group(1)
                         system['blocks'][curr_block_id]['moltype'] = curr_mol_type
                         system['topology'][curr_mol_type] = {}
                     if k == 'molcount':
+                        # save number of molecules in current block
                         n_molecules = int(match.group(1))
                         system['blocks'][curr_block_id]['n_molecules'] = n_molecules
                     if k == 'endinfo':
@@ -151,11 +152,12 @@ def parse_tpr(tpr_file, gmx=None):
                 system['topology'][curr_mol_type]['n_atoms'] = 0
                 # corresponding backbone list
                 system['topology'][curr_mol_type]['backbone'] = []
-
+            # start looking for useful data in the line
             for key, p in regexp_data.items():
                 match = p.match(line)
                 if match:
                     if key == 'atomnames':
+                        # update atom number for current molecule
                         system['topology'][curr_mol_type]['n_atoms'] += 1
                         # save backbone beads for later fix of short elastic bonds
                         at_nr = int(match.group(1))
@@ -163,6 +165,7 @@ def parse_tpr(tpr_file, gmx=None):
                         if at_name == "BB":
                             system['topology'][curr_mol_type]['backbone'].append(at_nr)
                     else:
+                        # other matches are all connectivity information
                         bond_type = key
                         bond = tuple(int(b) for b in match.group(1, 2))
                         system['topology'][curr_mol_type]['connectivity'][bond_type].append(bond)
@@ -173,10 +176,7 @@ def parse_top(top_file):
     """
     parses a topology file and returns useful information on the system
 
-    returns: - mol_blocks: number of molecules per type
-             - mols_atom_n: number of atoms in each molecule type
-             - mols_bonds: bonds dictionary
-             - backbones: backbone beads
+    returns a dictionary describing the system
     """
     # define regex patterns for later use
     regexp_include = re.compile('^#include\s+\"(.*?)\"')
@@ -191,47 +191,47 @@ def parse_top(top_file):
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
 
     # initialize some stuff
+    ID = 0
+    system = {
+        'blocks': {},
+        'topology': {},
+    }
     section = False
-
     # we need to shift all the atom ids, because topologies start from 1 and not 0
     id_fix = -1
 
     # read the file as lines and parse data
     with open(top_file, 'r') as f:
-        ID = 0
-        system = {
-            'blocks': {},
-            'topology': {},
-        }
         for line in f.readlines():
             # look for included topologies
             match = regexp_include.match(line)
             if match:
                 include_file = match.group(1)
                 include_path = Path(str(top_file.parent)+"/"+include_file)
-                # recursive call for included topologies
-                # add all the data we found to the main containers
+                # recursive call for included topologies and recursive update of system dictionary
                 update_recursive(system, parse_top(include_path))
             # look for a header in the form of `[something]`
             match = regexp_header.match(line)
             if match:
                 section = match.group(1)
             if section == 'molecules':
-                # save amount of molecules for each block
                 match = regexp_info.match(line)
                 if match:
-                    # Add this molecule to the system
+                    # save molecule info
                     curr_mol_type = match.group(1)
                     n_molecules = int(match.group(2))
                     curr_block_id = str(ID)
+                    # add molecule info to system
                     system['blocks'][curr_block_id] = {}
                     system['blocks'][curr_block_id]['moltype'] = curr_mol_type
                     system['blocks'][curr_block_id]['n_molecules'] = n_molecules
+                    # update current block id. Needed because, differently from tpr,
+                    # top does not define an id for blocks
                     ID += 1
             if section == 'moleculetype':
                 match = regexp_moltype.match(line)
                 if match:
-                    # if molecule header was found, initialize some stuff
+                    # if molecule header was found, initialize its dictionary
                     # molecule type id
                     curr_mol_type = match.group(1)
                     # main molecule dictionary
@@ -291,55 +291,68 @@ def make_graphs(system):
             except IndexError as e:
                 raise e
             bond_type = tmp_bonds
+            # if both atoms in a bond are labeled as backbone, go deeper
             if all(atom in backbone for atom in bond):
                 at_a, at_b = bond
                 at_a, at_b = int(at_a), int(at_b)
                 atom1_idx = backbone.index(at_a)
                 atom2_idx = backbone.index(at_b)
-                # if it's also between two non-adjacent beads, move it to `elastic`
+                # if the bond is between two non-adjacent backbone beads, move it to `elastic`
                 if abs(atom1_idx - atom2_idx) > 1:
                     bond_type = tmp_harmonics
             bond_type.append(bond)
+        # update old dictionaries with new info
         molecule['connectivity']['bonds'] = tmp_bonds
         molecule['connectivity']['harmonic'] = tmp_harmonics
 
     # Convert the lists of bonds to networkx graphs
     bond_graphs = {}
-
     offset = 0
     for block_id, block in system['blocks'].items():
         moltype = block['moltype']
         n_mol = block['n_molecules']
         n_at = system['topology'][moltype]['n_atoms']
         connectivity = system['topology'][moltype]['connectivity']
-        # Need to have numpy arrays to apply offset
+        # transform bonds in numpy arrays to easily apply offset
         connectivity = {btype: np.array(bonds) for btype, bonds in connectivity.items()}
 
+        # repeat for each occurence of molecule in this block
         for i in range(n_mol):
-            #key = f"{block_id}_{moltype}_{i}"
+            # unique key
             key = f"{block_id}_{i}"
             bond_graphs[key] = {}
             for btype, bonds in connectivity.items():
+                # create a graph based on connectivity and offset it to match atom numbers
                 g = nx.Graph()
                 g.add_edges_from(bonds + offset)
                 bond_graphs[key][btype] = g
+            # shift offset by how many atoms this molecule has
             offset += n_at
 
     return bond_graphs
 
 
-def cg_bonds(file=None, selection='all'):
+def cg_bonds(file=None, selection='all', gmx=None):
     """
-    Allow a cg structure to be visualized in pymol like an atomistic structure.
+DESCRIPTION
 
-    Usage: cg_bonds [selection], [tpr_file]
+    Allow a cg structure to be visualized in pymol like an atomistic structure
+    by drawing bonds and elastic network.
 
-    selection   : any selection to act upon (default: all)
-    tpr_file : a .tpr file to extract bond information from (default: None)
+    Without a top/tpr file, this function only adds bonds between the backbone beads
+    so they can be nicely visualized using line or stick representation.
+    Adding a top/tpr file provides topology information that can be used
+    to draw side chain and elastic bonds.
 
-    Without a tpr file, this function only adds bonds between the backbone beads so they can be
-    nicely visualized using line or stick representation.
-    A tpr file provides topology information that can be used to draw side chain and elastic bonds.
+USAGE
+
+    cg_bonds [file [, selection [, gmx]]]
+
+ARGUMENTS:
+
+    file = a tpr or topology file to extract bond information from (default: None)
+    selection = any selection to act upon (default: all)
+    gmx = gmx executable path (default: inferred by `which gmx`)
     """
     tpr_file = None
     top_file = None
@@ -360,14 +373,8 @@ def cg_bonds(file=None, selection='all'):
     else:
         raise FileNotFoundError(f'{maybe_file} does not exist.')
 
-    # Order might be important
-    cmd.set("retain_order", 1)  # TODO: is it really though?
-    # Yes, pymol otherwise sorts the atoms, if you then save the file you get a different result.
-
-    # Fix the view nicely
-    cmd.hide("everything", selection)
-    cmd.show_as("lines", selection)
-    cmd.util.cbc(selection)
+    # Retain order so pymol does not sort the atoms, giving a different result when saving the file
+    cmd.set("retain_order", 1)
 
     # Draw all the bonds based on tpr or top file
     if tpr_file or top_file:
@@ -375,7 +382,7 @@ def cg_bonds(file=None, selection='all'):
         warn = False
         # Get bond graphs
         if tpr_file:
-            parsed_data = parse_tpr(tpr_file)
+            parsed_data = parse_tpr(tpr_file, gmx)
         elif top_file:
             parsed_data = parse_top(top_file)
         bond_graphs = make_graphs(parsed_data)
@@ -421,6 +428,12 @@ def cg_bonds(file=None, selection='all'):
             bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
             for a, b in bonds:
                 cmd.bond(f"ID {a}", f"ID {b}")
+
+    # Fix the view nicely
+    cmd.hide("everything", selection)
+    cmd.show_as("sticks", selection)
+    cmd.show_as("lines", '*_elastics')
+
 
 #    # If an atomistic template was given, extract ss information
 #    if aa_template:

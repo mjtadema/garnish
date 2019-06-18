@@ -9,23 +9,24 @@ Lysozyme 2VB1 from left to right: crystal structure in cartoon representation, l
 To access the function, in PyMOL do `run pycg_bonds.py` or add `run pycg_bonds.py`
 to your pymolrc.
 
-# Usage
+# Usage 
 ```
-cg_bonds [file [, selection]]
+cg_bonds [file [, selection [, gmx]]]
 ```
+- file = a tpr or topology file to extract bond information from (default: None)
+- selection = any selection to act upon (default: all)
+- gmx = gmx executable path (default: inferred by `which gmx`)
 
-- `file`: a `.tpr` or `.top` file to parse and extract bond information from (default: None)
-- `selection`: any selection to act upon (default: all)
-
-Without a tpr or top file, this function only adds bonds between the backbone beads so they can be
-nicely visualized using line or stick representation.
-Adding a tpr or top file path provides topology information that can be used to draw side chain and elastic bonds.
+Without a top/tpr file, this function only adds bonds between the backbone beads
+so they can be nicely visualized using line or stick representation.
+Adding a top/tpr file provides topology information that can be used
+to draw side chain and elastic bonds.
 
 ## Examples
 
 To nicely show your martini `system` in pymol:
 ```
-cg_bonds system.tpr, system
+cg_bonds topol.top
 ```
 ... and wait. No, it did not crash.
 
