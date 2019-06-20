@@ -106,7 +106,7 @@ def parse_top(top_file):
 
 
 if __name__ == '__main__':
-    args = sys.argv[:1]
+    args = sys.argv[1:]
     parse_top(*args)
 
 if __name__ == 'pymol':
