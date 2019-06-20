@@ -42,7 +42,7 @@ def parse_top(top_file):
             match = regexp_include.match(line)
             if match:
                 include_file = match.group(1)
-                include_path = os.path.join(os.path.dirname(top_file), clean_path(include_file))
+                include_path = clean_path(os.path.join(os.path.dirname(top_file), include_file))
                 # recursive call for included topologies and recursive update of system dictionary
                 update_recursive(system, parse_top(include_path))
             # look for a header in the form of `[something]`
