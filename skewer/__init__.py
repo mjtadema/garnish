@@ -1,1 +1,3 @@
-from .skewer import skewer
+from skewer.skewer import main
+
+main()
