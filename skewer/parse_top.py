@@ -26,7 +26,7 @@ import os
 from pymol import cmd
 
 # local imports
-from pycg_bonds.utils import update_recursive, clean_path
+from skewer.utils import update_recursive, clean_path
 
 
 def parse_top(top_file):

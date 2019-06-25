@@ -27,9 +27,9 @@ import numpy as np
 from glob import glob
 
 # local imports
-from pycg_bonds.parse_tpr import parse_tpr
-from pycg_bonds.parse_top import parse_top
-from pycg_bonds.utils import clean_path, get_chain_bb
+from skewer.parse_tpr import parse_tpr
+from skewer.parse_top import parse_top
+from skewer.utils import clean_path, get_chain_bb
 
 
 def make_graphs(system):
@@ -94,11 +94,11 @@ def make_graphs(system):
     return bond_graphs
 
 
-def cg_bonds(file=None, selection='all', gmx=None):
+def skewer(file=None, selection='all', gmx=None):
     """
 DESCRIPTION
 
-    Allow a cg structure to be visualized in pymol like an atomistic structure
+    Allow a coarse grained structure to be visualized in pymol like an atomistic structure
     by drawing bonds and elastic network.
 
     Without a top/tpr file, this function only adds bonds between the backbone beads
@@ -108,9 +108,9 @@ DESCRIPTION
 
 USAGE
 
-    cg_bonds [file [, selection [, gmx]]]
+    skewer [file [, selection [, gmx]]]
 
-ARGUMENTS:
+ARGUMENTS
 
     file = a tpr or topology file to extract bond information from (default: None)
     selection = any selection to act upon (default: all)
@@ -216,15 +216,15 @@ ARGUMENTS:
 
 
 def main():
-    cmd.extend('cg_bonds', cg_bonds)
+    cmd.extend('skewer', skewer)
 
-    # tab completion for the cg_bonds command
+    # tab completion for the skewer command
     useful_file_sc = lambda: cmd.Shortcut(
          glob('*/') + glob('*.tpr') + glob('*.top') + glob('*.itp')  # + glob('*.pdb')
     )
-    cmd.auto_arg[0]['cg_bonds'] = [useful_file_sc, 'input file', ', ']
+    cmd.auto_arg[0]['skewer'] = [useful_file_sc, 'input file', ', ']
     # here object_sc is more informative than selection_sc
-    cmd.auto_arg[1]['cg_bonds'] = [cmd.object_sc, 'selection', '']
+    cmd.auto_arg[1]['skewer'] = [cmd.object_sc, 'selection', '']
 
 
 if __name__ == 'pymol':
