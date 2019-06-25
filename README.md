@@ -1,4 +1,4 @@
-# skewer
+# **SK**etch **E**fficiently a **WE**b of **R**elationships
 Allow a coarse grained structure to be visualized in pymol like an atomistic structure by drawing bonds and elastic network.
 
 # Screenshot
