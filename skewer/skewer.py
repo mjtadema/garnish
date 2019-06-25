@@ -215,7 +215,7 @@ ARGUMENTS
 #        cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
 
-def main():
+def load():
     cmd.extend('skewer', skewer)
 
     # tab completion for the skewer command
@@ -227,5 +227,6 @@ def main():
     cmd.auto_arg[1]['skewer'] = [cmd.object_sc, 'selection', '']
 
 
+# make sure it can be run as a script for simplicity
 if __name__ == 'pymol':
-    main()
+    load()
