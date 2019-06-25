@@ -1,5 +1,5 @@
 # **SK**etch **E**fficiently a **WE**b of **R**elationships
-Allow a coarse grained structure to be visualized in pymol like an atomistic structure by drawing bonds and elastic network.
+SKEWER allows a coarse grained structure to be visualized in pymol like an atomistic structure by drawing bonds and elastic network.
 
 # Screenshot
 ![Screenshot](/screenshots/screenshots.png?raw=true "lysozyme 2VB1")
