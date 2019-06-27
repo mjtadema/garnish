@@ -90,4 +90,4 @@ def extension(loading_func):
         return loading_func
     else:
         # Just return a passing lambda doing nothing, to avoid errors further downstream
-        return lambda: pass 
+        return lambda: None
