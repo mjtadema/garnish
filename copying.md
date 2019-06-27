@@ -30,7 +30,7 @@ _the garnish authors_ are:
 
 | Full name                   | aliases                     | E-Mail                                            |
 |-----------------------------|-----------------------------|---------------------------------------------------|
-| Matthijs Tadema             | mjtadema                    | M.J.Tadema à protonmail dawt com
+| Matthijs Tadema             | mjtadema                    | M dawt J dawt Tadema à protonmail dawt com
 | Lorenzo Gaifas              | brisvag                     | brisvag à gmail dawt com                          |
 
 If you're a first-time committer, add yourself to the above list. This is not
