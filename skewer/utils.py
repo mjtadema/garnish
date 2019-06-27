@@ -88,3 +88,6 @@ def extension(loading_func):
     
     if main_modulename == 'pymol':
         return loading_func
+    else:
+        # Just return a passing lambda doing nothing, to avoid errors further downstream
+        return lambda: pass 
