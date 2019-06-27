@@ -27,10 +27,9 @@ import numpy as np
 from glob import glob
 
 # local imports
-# This is how you do relative imports
 from .parse_tpr import parse_tpr
 from .parse_top import parse_top
-from .utils import clean_path, get_chain_bb, extension
+from .utils import clean_path, get_chain_bb
 
 
 def make_graphs(system):
@@ -95,7 +94,7 @@ def make_graphs(system):
     return bond_graphs
 
 
-def skewer(file=None, selection='all', gmx=None):
+def garnish(file=None, selection='all', gmx=None):
     """
 DESCRIPTION
 
@@ -109,7 +108,7 @@ DESCRIPTION
 
 USAGE
 
-    skewer [file [, selection [, gmx]]]
+    garnish [file [, selection [, gmx]]]
 
 ARGUMENTS
 
@@ -216,17 +215,16 @@ ARGUMENTS
 #        cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
 
-@extension
-def extend_skewer():
-    cmd.extend('skewer', skewer)
+def extend_garnish():
+    cmd.extend('garnish', garnish)
 
-    # tab completion for the skewer command
+    # tab completion for the garnish command
     useful_file_sc = lambda: cmd.Shortcut(
          glob('*/') + glob('*.tpr') + glob('*.top') + glob('*.itp')  # + glob('*.pdb')
     )
-    cmd.auto_arg[0]['skewer'] = [useful_file_sc, 'input file', ', ']
+    cmd.auto_arg[0]['garnish'] = [useful_file_sc, 'input file', ', ']
     # here object_sc is more informative than selection_sc
-    cmd.auto_arg[1]['skewer'] = [cmd.object_sc, 'selection', '']
+    cmd.auto_arg[1]['garnish'] = [cmd.object_sc, 'selection', '']
 
 
 ## make sure it can be run as a script for simplicity
