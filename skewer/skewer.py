@@ -27,9 +27,10 @@ import numpy as np
 from glob import glob
 
 # local imports
-from skewer.parse_tpr import parse_tpr
-from skewer.parse_top import parse_top
-from skewer.utils import clean_path, get_chain_bb
+# This is how you do relative imports
+from .parse_tpr import parse_tpr
+from .parse_top import parse_top
+from .utils import clean_path, get_chain_bb, extension
 
 
 def make_graphs(system):
@@ -215,7 +216,8 @@ ARGUMENTS
 #        cmd.show_as("cartoon", selection + " and (name BB or name CA)")
 
 
-def load():
+@extension
+def extend_skewer():
     cmd.extend('skewer', skewer)
 
     # tab completion for the skewer command
@@ -227,6 +229,6 @@ def load():
     cmd.auto_arg[1]['skewer'] = [cmd.object_sc, 'selection', '']
 
 
-# make sure it can be run as a script for simplicity
-if __name__ == 'pymol':
-    load()
+## make sure it can be run as a script for simplicity
+#if __name__ == 'pymol':
+#    load()
