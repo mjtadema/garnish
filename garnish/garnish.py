@@ -163,7 +163,10 @@ ARGUMENTS
                         try:
                             a += 1
                             b += 1
-                            cmd.add_bond(obj, a, b)
+                            try:
+                                cmd.add_bond(obj, a, b)
+                            except AttributeError:
+                                cmd.bond(f"({obj} and ID {a})", f"({obj} and ID {b})")
                         except KeyError:
                             warn = True
             # Get relative atoms for elastics object
@@ -174,7 +177,10 @@ ARGUMENTS
                     try:
                         a += 1
                         b += 1
-                        cmd.add_bond(elastics_obj, a, b)
+                        try:
+                            cmd.add_bond(elastics_obj, a, b)
+                        except AttributeError:
+                            cmd.bond(f"({elastics_obj} and ID {a})", f"({elastics_obj} and ID {b})")
                     except KeyError:
                         warn = True
             cmd.color("orange", elastics_obj)
