@@ -7,7 +7,7 @@ Lysozyme 2VB1 from left to right: crystal structure in cartoon representation, l
 
 # Installation
 ```
-pip install git+git://github.com/mjtadema/garnish.git#egg=martini-garnish
+pip install git+git://github.com/mjtadema/garnish.git#egg=garnish
 ```
 
 To access the function, in PyMOL do `import garnish`. 

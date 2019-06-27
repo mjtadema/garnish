@@ -7,7 +7,7 @@ with open("README.md", 'r') as f:
     long_description = f.read()
 
 setuptools.setup(
-        name="martini-garnish",
+        name="garnish",
         version="0.2-alpha",
         author=["Matthijs Tadema", "Lorenzo Gaifas"],
         author_email=["M.J.Tadema@protonmail.com", "brisvag@gmail.com"],
