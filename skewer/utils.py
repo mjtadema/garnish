@@ -24,6 +24,7 @@ from pymol import cmd
 import shutil
 import collections
 import os
+import sys
 
 
 def get_chain_bb(selection):
@@ -71,3 +72,19 @@ def clean_path(path):
     resolves path variables, `~`, symlinks and returns a clean absolute path
     """
     return os.path.realpath(os.path.expanduser(os.path.expandvars(path)))
+
+def extension(loading_func):
+    try:
+        # check if module was called by pymol, if yes run skewer.main
+        main_initfile = sys.modules['__main__'].__file__
+    
+        # get the name of the parent module
+        main_modulename = os.path.basename(clean_path(os.path.join(main_initfile, os.pardir)))
+    
+    except AttributeError:
+        # importing from an interpreter like ipython raises this error
+        main_modulename = None
+    
+    
+    if main_modulename == 'pymol':
+        return loading_func
