@@ -44,7 +44,7 @@ reason, please contact us.
 
 A full list of all garnish authors ("contributors") can also be determined
 from the VCS, e.g. via `git shortlog -sne`, or conveniently looked up on
-[the GitHub web interface](https://github.com/SFTtech/garnish/graphs/contributors).
+[the GitHub web interface](https://github.com/mjtadema/garnish/graphs/contributors).
 
 Details on individual authorships of files can be obtained via the VCS,
 e.g. via `git blame`, or the GitHub web interface.
@@ -81,8 +81,6 @@ source projects, require the following, longer header:
       file, copy the above any number of times >
     (Modifications|Other (data|code)|Everything else) Copyright 20XX-20YY the garnish authors.
     See copying.md for further legal info.
-
-For even more details, see the [regular expressions](buildsystem/codecompliance/legal.py).
 
 In addition to the garnish header, the file's original license header should
 be retained if in doubt.
