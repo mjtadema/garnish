@@ -26,7 +26,7 @@ import os
 from pymol import cmd
 
 # local imports
-from skewer.utils import update_recursive, clean_path
+from garnish.utils import update_recursive, clean_path
 
 
 def parse_top(top_file):

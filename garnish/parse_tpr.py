@@ -26,7 +26,7 @@ import sys
 from pymol import cmd
 
 # local imports
-from skewer.utils import get_gmx, clean_path
+from garnish.utils import get_gmx, clean_path
 
 
 def parse_tpr(tpr_file, gmx=None):
