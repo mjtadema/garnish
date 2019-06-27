@@ -74,6 +74,11 @@ def clean_path(path):
     return os.path.realpath(os.path.expanduser(os.path.expandvars(path)))
 
 def extension(loading_func):
+    """
+    Decorator for pymol extension functions.
+    Will only return the loading function if called by pymol, else returns an empty function so no errors are raised.
+    These functions can then be called in __init__.py to extend pymol functions to pymol.
+    """
     try:
         # check if module was called by pymol, if yes run skewer.main
         main_initfile = sys.modules['__main__'].__file__
