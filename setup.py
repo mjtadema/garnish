@@ -2,18 +2,19 @@
 
 import setuptools
 
-with open("README.md",'r') as f:
+
+with open("README.md", 'r') as f:
     long_description = f.read()
 
 setuptools.setup(
         name="martini-garnish",
         version="0.2-alpha",
         author=["Matthijs Tadema", "Lorenzo Gaifas"],
-        author_email="M.J.Tadema@protonmail.com",
+        author_email=["M.J.Tadema@protonmail.com", "brisvag@gmail.com"],
         description="Render coarse grained molecular structures in PyMOL",
         long_description=long_description,
         long_description_content_type="text/markdown",
-        url="https://github.com/mjtadema/pycg_bonds",
+        url="https://github.com/mjtadema/garnish",
         packages=setuptools.find_packages(),
         classifiers=[
             "Programming Language :: Python :: 3",
