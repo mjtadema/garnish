@@ -1,4 +1,4 @@
-# Garnish Accurately Represents a Network-Interconnected System in a Heartbeat
+# Garnish Accurately Represents a Network of Interconnected Systems in a Heartbeat
 GARNISH allows a coarse grained structure to be visualized in pymol like an atomistic structure by drawing bonds and elastic network.
 
 # Screenshot
