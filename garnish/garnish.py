@@ -172,12 +172,14 @@ ARGUMENTS
 
     # Draw simple bonds between backbone beads
     else:
-        chain_bb = get_chain_bb(selection)
-        # For each chain, draw bonds between BB beads
-        for _, bbs in chain_bb.items():
-            bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
-            for a, b in bonds:
-                cmd.bond(f"ID {a}", f"ID {b}")
+        bb_beads = get_chain_bb(selection)
+        # For each object and chain, draw bonds between BB beads
+        for obj, chains in bb_beads.items():
+            for _, bbs in chains.items():
+                # create bond tuples for "adjacent" backbone beads
+                bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
+                for a, b in bonds:
+                    cmd.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
 
     # Fix the view nicely
     cmd.hide("everything", selection)

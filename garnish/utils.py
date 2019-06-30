@@ -9,18 +9,24 @@ import sys
 
 def get_chain_bb(selection):
     """
-    returns dictionary with format {chain: list-of-bb-atoms}
+    returns nested dictionary with format {object: {chain: list-of-bb-atoms}}
     """
-    chains = cmd.get_chains(selection)
-    chain_bb = {}
-    for c in chains:
-        # if chain is empty string, put it in the "all" bin
-        if not c:
-            c = "*"
-        # "chain all" didn't actually select anything
-        bb_id = cmd.identify(selection + f" and chain {c} and name BB")
-        chain_bb[c] = bb_id
-    return chain_bb
+    bb_name = "BB"
+    bb_beads = {}
+
+    # get list of objects in selection
+    objects = cmd.get_names(selection=selection)
+
+    for obj in objects:
+        chains = cmd.get_chains(obj)
+        bb_beads[obj] = {}
+        for c in chains:
+            # if chain is empty string, put it in the "*" bin
+            if not c:
+                c = "*"
+            id_list = cmd.identify(f"{obj} and chain {c} and name {bb_name}")
+            bb_beads[obj][c] = id_list
+    return bb_beads
 
 
 def get_gmx(gmx_bin):
