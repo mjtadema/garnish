@@ -179,7 +179,10 @@ ARGUMENTS
                 # create bond tuples for "adjacent" backbone beads
                 bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
                 for a, b in bonds:
-                    cmd.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
+                    try:
+                        cmd.add_bond(obj, a, b)
+                    except AttributeError:
+                        cmd.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
 
     # Fix the view nicely
     cmd.hide("everything", selection)
