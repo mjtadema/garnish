@@ -206,7 +206,9 @@ def extend_garnish():
 
     # tab completion for the garnish command
     def useful_file_sc():
-        return cmd.Shortcut(glob('*/') + glob('*.tpr') + glob('*.top') + glob('*.itp'))
+        return cmd.Shortcut(glob('**/*.tpr', recursive=True) +
+                            glob('**/*.top', recursive=True) +
+                            glob('**/*.itp', recursive=True))
 
     cmd.auto_arg[0]['garnish'] = [useful_file_sc, 'input file', ', ']
     # here object_sc is more informative than selection_sc
