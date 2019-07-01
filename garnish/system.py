@@ -5,13 +5,13 @@ import numpy as np
 class System:
     def __init__(self, sys_dict):
         self.sys_dict = sys_dict
-        self.graph = None
-        self.data = None
+        self.graph = nx.Graph()
+        self.data = {}
 
         # fix wrong elastic bonds
         self.fix_elastics()
 
-        #self.make_graph(sys_dict)
+        self.make_graph()
         #self.make_data(sys_dict)
 
     def fix_elastics(self):
@@ -44,7 +44,7 @@ class System:
             molecule['connectivity']['harmonic'] = tmp_harmonics
 
     def make_graph(self):
-        # unfold the topology to create dictionaries on a per_atom basis
+        # unfold the topology to create a graph with atoms as nodes
         offset = 0
         for block_id, block in sys_dict['blocks'].items():
             moltype = block['moltype']
@@ -56,14 +56,9 @@ class System:
 
             # repeat for each occurrence of molecule in this block
             for i in range(n_mol):
-                # unique key
-                key = f"{block_id}_{i}"
-                bond_graphs[key] = {}
                 for btype, bonds in connectivity.items():
                     # create a graph based on connectivity and offset it to match atom numbers
-                    g = nx.Graph()
-                    g.add_edges_from(bonds + offset)
-                    bond_graphs[key][btype] = g
+                    self.graph.add_edges_from(bonds + offset)
                 # shift offset by how many atoms this molecule has
                 offset += n_at
 
@@ -78,4 +73,4 @@ if __name__ == '__main__':
     sys_dict = parse_top(sys.argv[1])
     s = System(sys_dict)
 
-    print(s.sys_dict)
+    print(s.graph.size())
