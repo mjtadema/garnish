@@ -41,13 +41,17 @@ ARGUMENTS
         system = System(sys_dict)
         system.draw(selection)
     else:
-        # draw simple bonds between backbone beads
-        chain_bb = get_chain_bb(selection)
-        # for each chain, draw bonds between bb beads
-        for _, bbs in chain_bb.items():
-            bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
-            for a, b in bonds:
-                cmd.bond(f"id {a}", f"id {b}")
+        bb_beads = get_chain_bb(selection)
+        # For each object and chain, draw bonds between BB beads
+        for obj, chains in bb_beads.items():
+            for _, bbs in chains.items():
+                # create bond tuples for "adjacent" backbone beads
+                bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
+                for a, b in bonds:
+                    try:
+                        cmd.add_bond(obj, a, b)
+                    except AttributeError:
+                        cmd.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
 
     # Fix the view nicely
     cmd.hide("everything", selection)
