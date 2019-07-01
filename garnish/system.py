@@ -1,3 +1,5 @@
+# Copyright 2019-2019 the garnish authors. See copying.md for legal info.
+
 import networkx as nx
 import numpy as np
 from pymol import cmd
@@ -103,12 +105,3 @@ class System:
         if warn:
             print('WARNING: some atoms present in the tpr file were not found in the loaded '
                   'structure.\n Bonds containing those atoms were not drawn.')
-
-
-if __name__ == '__main__':
-    from garnish.parse_top import parse_top
-    import sys
-    from pprint import pprint
-    sys_dict = parse_top(sys.argv[1])
-    s = System(sys_dict)
-    pprint(s.graph.edges)

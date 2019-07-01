@@ -1,6 +1,6 @@
 # Structure of system dictionary
 
-This is the output of `parse_tpr` and `parse_top`:
+This is the structure of a system dictionary (e.g.: `parse_tpr` and `parse_top`):
 
 ``` 
 system = {
@@ -28,18 +28,18 @@ system = {
 }
 ```
 
-# Structure of graphs dictionary
+# Structure of system graph
 
-This is the output of `make_graphs`:
+This is the structure of `System.graph`:
 
 ``` 
-bond_graphs = {
-    'molecule_id': {
-        'bonds': <graph>
-        'constr': <graph>
-        'harmonic': <graph>
-    }
-    ...
-    ...
-}
+System.graph:
+    - nodes:
+        (atom_id, {'moltype': X, 'block': Y})
+        ...
+        ...
+    - edges:
+        (atom1_id, atom2_id, {'type': 'bonds'|'constr'|'harmonic'}
+        ...
+        ...
 ```
