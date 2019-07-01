@@ -66,46 +66,8 @@ ARGUMENTS
             parsed_data = parse_tpr(tpr_file, gmx)
         elif top_file:
             parsed_data = parse_top(top_file)
-        bond_graphs = make_graphs(parsed_data)
-        selection_objects = cmd.get_object_list(selection)
-        for obj in selection_objects:
-            elastics_obj = obj+"_elastics"
-            # Create dummy object to draw elastic bonds in
-            cmd.copy(elastics_obj, obj)
-            # Make a dict of all the atoms (to get effective relative atom numbering)
-            # Draw all the bonds
-            for btype in ['bonds', 'constr']:
-                for _, bonds in bond_graphs.items():
-                    for a, b in bonds[btype].edges:
-                        try:
-                            a += 1
-                            b += 1
-                            try:
-                                cmd.add_bond(obj, a, b)
-                            except AttributeError:
-                                cmd.bond(f"({obj} and ID {a})", f"({obj} and ID {b})")
-                        except KeyError:
-                            warn = True
-            # Get relative atoms for elastics object
-            atoms = cmd.get_model(elastics_obj)
-            # Draw elastic network
-            for _, bonds in bond_graphs.items():
-                for i, (a, b) in enumerate(bonds['harmonic'].edges):
-                    try:
-                        a += 1
-                        b += 1
-                        try:
-                            cmd.add_bond(elastics_obj, a, b)
-                        except AttributeError:
-                            cmd.bond(f"({elastics_obj} and ID {a})", f"({elastics_obj} and ID {b})")
-                    except KeyError:
-                        warn = True
-            cmd.color("orange", elastics_obj)
-
-        # warn about missing atoms if needed.
-        if warn:
-            print('WARNING: some atoms present in the tpr file were not found in the loaded '
-                  'structure.\n Bonds containing those atoms were not drawn.')
+        system = System(parsed_data)
+        system.draw(selection)
 
     # Draw simple bonds between backbone beads
     else:
