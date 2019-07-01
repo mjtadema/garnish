@@ -12,7 +12,6 @@ class System:
         self.fix_elastics()
 
         self.make_graph()
-        #self.make_data(sys_dict)
 
     def fix_elastics(self):
         # Iterate over molecules, fix elastic bonds where necessary
@@ -56,21 +55,26 @@ class System:
 
             # repeat for each occurrence of molecule in this block
             for i in range(n_mol):
+                # add edges to connectivity graph
                 for btype, bonds in connectivity.items():
                     # create a graph based on connectivity and offset it to match atom numbers
                     self.graph.add_edges_from(bonds + offset)
+
+                # add atom data to self.data
+                # TODO: there should be a way to vectorize this, I feel, but I can't figure it out
+                for atom_id in np.array(range(n_at)) + 1 + offset:
+                    self.data[atom_id] = {
+                        'moltype': moltype,
+                        'block': block_id,
+                    }
+
                 # shift offset by how many atoms this molecule has
                 offset += n_at
-
-    def make_data(self):
-        pass
 
 
 if __name__ == '__main__':
     from garnish.parse_top import parse_top
     import sys
-    from pprint import pprint as print
+    from pprint import pprint
     sys_dict = parse_top(sys.argv[1])
     s = System(sys_dict)
-
-    print(s.graph.size())
