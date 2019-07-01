@@ -2,76 +2,13 @@
 
 import os.path
 from pymol import cmd  # stored
-import networkx as nx
-import numpy as np
 from glob import glob
 
 # local imports
 from .parse_tpr import parse_tpr
 from .parse_top import parse_top
+from .system import System
 from .utils import clean_path, get_chain_bb
-
-
-def make_graphs(system):
-    """
-    uses data gathered from file parsing to correctly identify bonds for each molecule
-
-    returns graph representations of all the bonds in the system
-    """
-
-    # Iterate over molecules, fix elastic bonds where necessary
-    for key in system['topology'].keys():
-        molecule = system['topology'][key]
-        bond_list = molecule['connectivity']['bonds']
-        tmp_harmonics = molecule['connectivity']['harmonic']
-        tmp_bonds = []
-        backbone = molecule['backbone']
-
-        while bond_list:
-            try:
-                bond = bond_list.pop()
-            except IndexError as e:
-                raise e
-            bond_type = tmp_bonds
-            # if both atoms in a bond are labeled as backbone, go deeper
-            if all(atom in backbone for atom in bond):
-                at_a, at_b = bond
-                at_a, at_b = int(at_a), int(at_b)
-                atom1_idx = backbone.index(at_a)
-                atom2_idx = backbone.index(at_b)
-                # if the bond is between two non-adjacent backbone beads, move it to `elastic`
-                if abs(atom1_idx - atom2_idx) > 1:
-                    bond_type = tmp_harmonics
-            bond_type.append(bond)
-        # update old dictionaries with new info
-        molecule['connectivity']['bonds'] = tmp_bonds
-        molecule['connectivity']['harmonic'] = tmp_harmonics
-
-    # Convert the lists of bonds to networkx graphs
-    bond_graphs = {}
-    offset = 0
-    for block_id, block in system['blocks'].items():
-        moltype = block['moltype']
-        n_mol = block['n_molecules']
-        n_at = system['topology'][moltype]['n_atoms']
-        connectivity = system['topology'][moltype]['connectivity']
-        # transform bonds in numpy arrays to easily apply offset
-        connectivity = {btype: np.array(bonds) for btype, bonds in connectivity.items()}
-
-        # repeat for each occurence of molecule in this block
-        for i in range(n_mol):
-            # unique key
-            key = f"{block_id}_{i}"
-            bond_graphs[key] = {}
-            for btype, bonds in connectivity.items():
-                # create a graph based on connectivity and offset it to match atom numbers
-                g = nx.Graph()
-                g.add_edges_from(bonds + offset)
-                bond_graphs[key][btype] = g
-            # shift offset by how many atoms this molecule has
-            offset += n_at
-
-    return bond_graphs
 
 
 def garnish(file=None, selection='all', gmx=None):

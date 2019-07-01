@@ -4,6 +4,7 @@ import re
 import sys
 import os
 from pymol import cmd
+import pandas as pd
 
 # local imports
 from .utils import update_recursive, clean_path
