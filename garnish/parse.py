@@ -135,8 +135,8 @@ def parse_tpr(tpr_file, gmx=None):
     regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
 
     regexp_data = {
-        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\[w-\+]+)"),
-        'atomtypes': re.compile("^\s+type\[(\d+)\]=\{name=\"(\[w-\+]+)"),
+        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\S+?)"),
+        'atomtypes': re.compile("^\s+type\[(\d+)\]=\{name=\"(\S+?)"),
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
         'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
         'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
