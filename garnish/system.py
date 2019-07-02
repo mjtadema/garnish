@@ -120,3 +120,10 @@ class System:
                   #        be starting from 1 instead of 0. But how are bonds working fine then?
                   expression=f'elem=data[ID-1]["atomtype"]; '
                   )
+
+    def __str__(self):
+        from pprint import pformat
+        return (f'This system is divided in {len(self.sys_dict["blocks"])} blocks:\n'
+                f'{pformat(self.sys_dict["blocks"], compact=True)}\n'
+                f'The topology contains the following molecule definitions:\n'
+                f'{pformat(self.sys_dict["topology"], compact=True, depth=2, indent=2)}\n')
