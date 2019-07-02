@@ -115,7 +115,7 @@ class System:
         data = self.graph.nodes(data=True)
         # create a namespace to feed to pymol
         tmp_namespace = {'data': data}
-        cmd.alter(selection=f'{selection}', space=tmp_namespace,
+        cmd.alter(selection=selection, space=tmp_namespace,
                   # FIXME: -1 on the ID is a hack. Why is ID behaving differently here? It seems to
                   #        be starting from 1 instead of 0. But how are bonds working fine then?
                   expression=f'elem=data[ID-1]["atomtype"]; '

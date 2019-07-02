@@ -21,9 +21,9 @@ def parse_top(top_file):
 
     regexp_header = re.compile('^\s*\[\s*(\w+)\s*\]')
 
-    regexp_info = re.compile('^\s*(\w+)\s+(\d+)')
+    regexp_info = re.compile('^\s*(\S+)\s+(\d+)')
     regexp_moltype = re.compile('^\s*(\S+)\s+(\d+)')
-    regexp_atom = re.compile('^\s*(\d+)\s+(\w+)\s+\d+\s+\w+\s+(\w+)')
+    regexp_atom = re.compile('^\s*(\d+)\s+(\S+)\s+\d+\s+\S+\s+(\S+)')
     regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
     #regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)')
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
@@ -135,8 +135,8 @@ def parse_tpr(tpr_file, gmx=None):
     regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
 
     regexp_data = {
-        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\w+)"),
-        'atomtypes': re.compile("^\s+type\[(\d+)\]=\{name=\"(\w+)"),
+        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\[w-\+]+)"),
+        'atomtypes': re.compile("^\s+type\[(\d+)\]=\{name=\"(\[w-\+]+)"),
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
         'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
         'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
