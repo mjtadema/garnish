@@ -40,6 +40,7 @@ ARGUMENTS
         # create System object and draw all the bonds
         system = System(sys_dict)
         system.draw_bonds(selection)
+        system.transfer_attributes(selection)
     else:
         bb_beads = get_chain_bb(selection)
         # For each object and chain, draw bonds between BB beads

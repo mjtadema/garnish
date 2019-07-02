@@ -116,4 +116,7 @@ class System:
         # create a namespace to feed to pymol
         tmp_namespace = {'data': data}
         cmd.alter(selection=f'{selection}', space=tmp_namespace,
-                  expression=f'elem=data[ID]["atomtype"]')
+                  # FIXME: -1 on the ID is a hack. Why is ID behaving differently here? It seems to
+                  #        be starting from 1 instead of 0. But how are bonds working fine then?
+                  expression=f'elem=data[ID-1]["atomtype"]; '
+                  )
