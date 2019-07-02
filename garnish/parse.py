@@ -23,7 +23,7 @@ def parse_top(top_file):
 
     regexp_info = re.compile('^\s*(\w+)\s+(\d+)')
     regexp_moltype = re.compile('^\s*(\S+)\s+(\d+)')
-    regexp_atom = re.compile('^\s*(\d+)\s+\w+\s+\d+\s+\w+\s+(\w+)')
+    regexp_atom = re.compile('^\s*(\d+)\s+(\w+)\s+\d+\s+\w+\s+(\w+)')
     regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
     #regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)')
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
@@ -80,15 +80,19 @@ def parse_top(top_file):
                             'harmonic': []
                         },
                         'n_atoms': 0,
+                        'atomtypes': {},
                         'backbone': []
                     }
             if section == 'atoms':
                 match = regexp_atom.match(line)
                 if match:
                     atom_id = int(match.group(1))
-                    atom_name = match.group(2)
+                    atom_type = match.group(2)
+                    atom_name = match.group(3)
                     # increment atom count for current molecule type
                     system['topology'][curr_mol_type]['n_atoms'] += 1
+                    # also save all the atom types in system
+                    system['topology'][curr_mol_type]['atomtypes'][atom_id+id_fix] = atom_type
                     # save backbone beads for later fix of short elastic bonds
                     if atom_name == "BB":
                         system['topology'][curr_mol_type]['backbone'].append(atom_id + id_fix)
@@ -132,6 +136,7 @@ def parse_tpr(tpr_file, gmx=None):
 
     regexp_data = {
         'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\w+)"),
+        'atomtypes': re.compile("^\s+type\[(\d+)\]=\{name=\"(\w+)"),
         'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
         'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
         'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
@@ -182,6 +187,8 @@ def parse_tpr(tpr_file, gmx=None):
                 }
                 # corresponding number of atoms
                 system['topology'][curr_mol_type]['n_atoms'] = 0
+                # corresponding atom types dictionary
+                system['topology'][curr_mol_type]['atomtypes'] = {}
                 # corresponding backbone list
                 system['topology'][curr_mol_type]['backbone'] = []
             # start looking for useful data in the line
@@ -196,6 +203,11 @@ def parse_tpr(tpr_file, gmx=None):
                         at_name = match.group(2)
                         if at_name == "BB":
                             system['topology'][curr_mol_type]['backbone'].append(at_nr)
+                    elif key == 'atomtypes':
+                        # also save all the atom types in system
+                        at_nr = int(match.group(1))
+                        at_type = match.group(2)
+                        system['topology'][curr_mol_type]['atomtypes'][at_nr] = at_type
                     else:
                         # other matches are all connectivity information
                         bond_type = key

@@ -50,7 +50,10 @@ class System:
         for block_id, block in self.sys_dict['blocks'].items():
             moltype = block['moltype']
             n_mol = block['n_molecules']
+
             n_at = self.sys_dict['topology'][moltype]['n_atoms']
+            a_types = self.sys_dict['topology'][moltype]['atomtypes']
+
             connectivity = self.sys_dict['topology'][moltype]['connectivity']
             # transform bonds in numpy arrays to easily apply offset
             connectivity = {btype: np.array(bonds) for btype, bonds in connectivity.items()}
@@ -59,8 +62,11 @@ class System:
             for i in range(n_mol):
                 # create nodes and add atom data to each
                 # TODO: there should be a way to vectorize this, I feel, but I can't figure it out
-                for atom_id in np.array(range(n_at)) + 1 + offset:
-                    self.graph.add_node(atom_id, moltype=moltype, block=block_id)
+                # loop through all the atoms in the molecule
+                for local_atom_id in range(n_at):
+                    atom_id = local_atom_id + offset
+                    at_type = a_types[local_atom_id]
+                    self.graph.add_node(atom_id, moltype=moltype, block=block_id, atomtype=at_type)
                 # add edges to graph
                 for btype, bonds in connectivity.items():
                     # create a graph based on connectivity and offset it to match atom numbers
@@ -69,7 +75,7 @@ class System:
                 # shift offset by how many atoms this molecule has
                 offset += n_at
 
-    def draw(self, selection):
+    def draw_bonds(self, selection):
         warn = False
         selection_objects = cmd.get_object_list(selection)
         for obj in selection_objects:
@@ -100,8 +106,14 @@ class System:
                     except KeyError:
                         warn = True
             cmd.color("orange", elastics_obj)
-
         # warn about missing atoms if needed.
         if warn:
             print('WARNING: some atoms present in the tpr file were not found in the loaded '
                   'structure.\n Bonds containing those atoms were not drawn.')
+
+    def transfer_attributes(self, selection):
+        data = self.graph.nodes(data=True)
+        # create a namespace to feed to pymol
+        tmp_namespace = {'data': data}
+        cmd.alter(selection=f'{selection}', space=tmp_namespace,
+                  expression=f'elem=data[ID]["atomtype"]')

@@ -39,7 +39,7 @@ ARGUMENTS
         sys_dict = parse(file, gmx)
         # create System object and draw all the bonds
         system = System(sys_dict)
-        system.draw(selection)
+        system.draw_bonds(selection)
     else:
         bb_beads = get_chain_bb(selection)
         # For each object and chain, draw bonds between BB beads

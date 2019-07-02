@@ -20,6 +20,7 @@ system = {
                 'harmonic': [(atom1, atom2), (...), ...]
             }
             'n_atoms': int
+            'atomtypes': {atom1: type1, atom2: type2, ...}
             'backbone': [atom1, atom2, atom3, ...]
         }
         ...
@@ -35,7 +36,7 @@ This is the structure of `System.graph`:
 ``` 
 System.graph:
     - nodes:
-        (atom_id, {'moltype': X, 'block': Y})
+        (atom_id, {'moltype': A, 'block': B, 'atomtype': C})
         ...
         ...
     - edges:
