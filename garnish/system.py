@@ -8,13 +8,12 @@ from pymol import cmd
 class System:
     def __init__(self, sys_dict, fix_elastics=True):
         self.sys_dict = sys_dict
-        self.graph = nx.Graph()
 
         if fix_elastics:
             # fix wrong elastic bonds
             self.fix_elastics()
 
-        self.make_graph()
+        self.graph = self.make_graph()
 
     def fix_elastics(self):
         # Iterate over molecules, fix elastic bonds where necessary
@@ -43,6 +42,8 @@ class System:
             molecule['connectivity']['harmonic'] = tmp_harmonics
 
     def make_graph(self):
+        graph = nx.Graph()
+
         # unfold the topology to create a graph with atoms as nodes
         offset = 0
         for block_id, block in self.sys_dict['blocks'].items():
@@ -64,14 +65,16 @@ class System:
                 for local_atom_id in range(n_at):
                     atom_id = local_atom_id + offset
                     at_type = a_types[local_atom_id]
-                    self.graph.add_node(atom_id, moltype=moltype, block=block_id, atomtype=at_type)
+                    graph.add_node(atom_id, moltype=moltype, block=block_id, atomtype=at_type)
                 # add edges to graph
                 for btype, bonds in connectivity.items():
                     # create a graph based on connectivity and offset it to match atom numbers
-                    self.graph.add_edges_from(bonds + offset, type=btype)
+                    graph.add_edges_from(bonds + offset, type=btype)
 
                 # shift offset by how many atoms this molecule has
                 offset += n_at
+
+        return graph
 
     def draw_bonds(self, selection):
         warn = False
