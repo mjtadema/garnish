@@ -9,7 +9,7 @@ from .system import System
 from .utils import get_chain_bb
 
 
-def garnish(file=None, selection='all', gmx=None, fix_elastics=True):
+def garnish(file=None, selection='all', gmx=None, fix_elastics=True, guess_bb=True):
     """
 DESCRIPTION
 
@@ -45,7 +45,11 @@ ARGUMENTS
         system = System(sys_dict, fix_elastics=fix_elastics)
         system.draw_bonds(selection)
         system.transfer_attributes(selection)
-    else:
+
+        # Fix the view for elastics
+        cmd.show_as("lines", '*_elastics')
+
+    elif guess_bb:
         bb_beads = get_chain_bb(selection)
         # For each object and chain, draw bonds between BB beads
         for obj, chains in bb_beads.items():
@@ -58,10 +62,13 @@ ARGUMENTS
                     except AttributeError:
                         cmd.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
 
-    # Fix the view nicely
+    else:
+        # show as spheres if no info on bonds is present
+        cmd.show_as('spheres', selection)
+        return
+
     cmd.hide("everything", selection)
     cmd.show_as("sticks", selection)
-    cmd.show_as("lines", '*_elastics')
 
 
 def extend_garnish():
