@@ -29,7 +29,7 @@ def parse_top(top_file):
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
 
     # initialize some stuff
-    ID = 0
+    block_id = 0
     system = {
         'blocks': {},
         'topology': {},
@@ -58,14 +58,14 @@ def parse_top(top_file):
                     # save molecule info
                     curr_mol_type = match.group(1)
                     n_molecules = int(match.group(2))
-                    curr_block_id = str(ID)
+                    curr_block_id = str(block_id)
                     # add molecule info to system
                     system['blocks'][curr_block_id] = {}
                     system['blocks'][curr_block_id]['moltype'] = curr_mol_type
                     system['blocks'][curr_block_id]['n_molecules'] = n_molecules
                     # update current block id. Needed because, differently from tpr,
                     # top does not define an id for blocks
-                    ID += 1
+                    block_id += 1
             if section == 'moleculetype':
                 match = regexp_moltype.match(line)
                 if match:
