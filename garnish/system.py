@@ -6,12 +6,13 @@ from pymol import cmd
 
 
 class System:
-    def __init__(self, sys_dict):
+    def __init__(self, sys_dict, fix_elastics=True):
         self.sys_dict = sys_dict
         self.graph = nx.Graph()
 
-        # fix wrong elastic bonds
-        self.fix_elastics()
+        if fix_elastics:
+            # fix wrong elastic bonds
+            self.fix_elastics()
 
         self.make_graph()
 
