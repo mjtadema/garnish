@@ -42,19 +42,16 @@ def parse_top(top_file):
     with open(top_file, 'r') as f:
         for line in f.readlines():
             # look for included topologies
-            match = regexp_include.match(line)
-            if match:
+            if match := regexp_include.match(line):
                 include_file = match.group(1)
                 include_path = clean_path(os.path.join(os.path.dirname(top_file), include_file))
                 # recursive call for included topologies and recursive update of system dictionary
                 update_recursive(system, parse_top(include_path))
             # look for a header in the form of `[something]`
-            match = regexp_header.match(line)
-            if match:
+            if match := regexp_header.match(line):
                 section = match.group(1)
             if section == 'molecules':
-                match = regexp_info.match(line)
-                if match:
+                if match := regexp_info.match(line):
                     # save molecule info
                     curr_mol_type = match.group(1)
                     n_molecules = int(match.group(2))
@@ -67,8 +64,7 @@ def parse_top(top_file):
                     # top does not define an id for blocks
                     block_id += 1
             if section == 'moleculetype':
-                match = regexp_moltype.match(line)
-                if match:
+                if match := regexp_moltype.match(line):
                     # if molecule header was found, initialize its dictionary
                     # molecule type id
                     curr_mol_type = match.group(1)
@@ -84,8 +80,7 @@ def parse_top(top_file):
                         'backbone': []
                     }
             if section == 'atoms':
-                match = regexp_atom.match(line)
-                if match:
+                if match := regexp_atom.match(line):
                     atom_id = int(match.group(1))
                     atom_type = match.group(2)
                     atom_name = match.group(3)
@@ -97,14 +92,12 @@ def parse_top(top_file):
                     if atom_name == "BB":
                         system['topology'][curr_mol_type]['backbone'].append(atom_id + id_fix)
             if section == 'bonds':
-                match = regexp_bond.match(line)
-                if match:
+                if match := regexp_bond.match(line):
                     # save bond, fixing the atom ids to match those of pymol
                     bond = tuple(int(b) + id_fix for b in match.group(1, 2))
                     system['topology'][curr_mol_type]['connectivity']['bonds'].append(bond)
             if section == 'constraints':
-                match = regexp_constr.match(line)
-                if match:
+                if match := regexp_constr.match(line):
                     # save constraint, fixing the atom ids to match those of pymol
                     constr = tuple(int(b) + id_fix for b in match.group(1, 2))
                     system['topology'][curr_mol_type]['connectivity']['constr'].append(constr)
@@ -121,25 +114,25 @@ def parse_tpr(tpr_file, gmx=None):
     gmx = get_gmx(gmx)
 
     # dump tpr info in a string
-    gmxdump = subprocess.run([gmx, "dump", "-s", clean_path(tpr_file)],
+    gmxdump = subprocess.run([gmx, 'dump', '-s', clean_path(tpr_file)],
                              capture_output=True, text=True)
 
     # define regex patterns for later use
     regexp_info = {
-        'molblock': re.compile('^\s+molblock\s+\((\d+)'),
+        'molblock': re.compile('^\s+molblock\s+\((\d+)\)'),
         'moltype': re.compile('^\s+moltype\s+=\s+(\d+)'),
         'molcount': re.compile('^\s+#molecules\s+=\s+(\d+)'),
         'endinfo': re.compile('^\s+ffparams')
     }
 
-    regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
+    regexp_header = re.compile('^\s+moltype\s+\((\d+)\):')
 
     regexp_data = {
-        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\S+?)"),
-        'atomtypes': re.compile("^\s+type\[(\d+)\]=\{name=\"(\S+?)"),
-        'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
-        'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
-        'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
+        'atomnames': re.compile('^\s+atom\[(\d+)\]=\{name=\"(\S+?)'),
+        'atomtypes': re.compile('^\s+type\[(\d+)\]=\{name=\"(\S+?)'),
+        'bonds': re.compile('^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)'),
+        'constr': re.compile('^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)'),
+        'harmonic': re.compile('^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)')
     }
 
     # initialize some stuff
@@ -154,8 +147,7 @@ def parse_tpr(tpr_file, gmx=None):
         # parse for molecule information in the first section
         if info_section:
             for k, p in regexp_info.items():
-                match = p.match(line)
-                if match:
+                if match := p.match(line):
                     if k == 'molblock':
                         # save current molecule block id
                         curr_block_id = match.group(1)
@@ -174,8 +166,7 @@ def parse_tpr(tpr_file, gmx=None):
                         info_section = False
         else:
             # look for a new molecule definition
-            match = regexp_header.match(line)
-            if match:
+            if match := regexp_header.match(line):
                 # if molecule header was found, initialize some stuff
                 # molecule type id
                 curr_mol_type = match.group(1)
@@ -193,8 +184,7 @@ def parse_tpr(tpr_file, gmx=None):
                 system['topology'][curr_mol_type]['backbone'] = []
             # start looking for useful data in the line
             for key, p in regexp_data.items():
-                match = p.match(line)
-                if match:
+                if match := p.match(line):
                     if key == 'atomnames':
                         # update atom number for current molecule
                         system['topology'][curr_mol_type]['n_atoms'] += 1
