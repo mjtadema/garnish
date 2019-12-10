@@ -26,10 +26,7 @@ class System:
             backbone = molecule['backbone']
 
             while bond_list:
-                try:
-                    bond = bond_list.pop()
-                except IndexError as e:
-                    raise e
+                bond = bond_list.pop()
                 bond_type = tmp_bonds
                 # if both atoms in a bond are labeled as backbone, go deeper
                 if all(atom in backbone for atom in bond):
