@@ -106,7 +106,7 @@ class System:
                             cmd.bond(f"({elastics_obj} and ID {a})", f"({elastics_obj} and ID {b})")
                     except KeyError:
                         warn = True
-            cmd.color("orange", elastics_obj)
+
         # warn about missing atoms if needed.
         if warn:
             print('WARNING: some atoms present in the tpr file were not found in the loaded '

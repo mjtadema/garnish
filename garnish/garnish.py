@@ -9,7 +9,7 @@ from .system import System
 from .utils import get_chain_bb
 
 
-def garnish(file=None, selection='all', gmx=None, fix_elastics=True, guess_bb=True):
+def garnish(file=None, selection='all', gmx=None, fix_elastics=True, guess_bb=True, show=True):
     """
 DESCRIPTION
 
@@ -61,13 +61,16 @@ ARGUMENTS
 
     else:
         # show as spheres if no info on bonds is present
-        cmd.show_as('spheres', selection)
+        if show:
+            cmd.show_as('spheres', selection)
         return
 
-    cmd.hide("everything", selection)
-    cmd.show_as("sticks", selection)
-    # Fix the view for elastics
-    cmd.show_as("lines", '*_elastics')
+    if show:
+        cmd.hide("everything", selection)
+        cmd.show_as("sticks", selection)
+        # Fix the view for elastics
+        cmd.color('orange', '*_elastics')
+        cmd.show_as("lines", '*_elastics')
 
 
 def extend_garnish():
