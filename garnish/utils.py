@@ -3,7 +3,7 @@
 from pymol import cmd
 import shutil
 import collections
-import os
+from pathlib import Path
 import sys
 
 
@@ -55,9 +55,9 @@ def update_recursive(base_dict, input_dict):
 
 def clean_path(path):
     """
-    resolves path variables, `~`, symlinks and returns a clean absolute path
+    cleans up paths and resolves ~ and symlinks
     """
-    return os.path.realpath(os.path.expanduser(os.path.expandvars(path)))
+    return Path(path).expanduser().resolve()
 
 
 def extension(loading_func):
@@ -69,11 +69,7 @@ def extension(loading_func):
     """
     try:
         # check if module was called by pymol
-        main_initfile = sys.modules['__main__'].__file__
-
-        # get the name of the parent module
-        main_modulename = os.path.basename(clean_path(os.path.join(main_initfile, os.pardir)))
-    
+        main_modulename = clean_path(sys.modules['__main__'].__file__).parent.name
     except AttributeError:
         # importing from an interpreter like ipython raises this error
         main_modulename = None

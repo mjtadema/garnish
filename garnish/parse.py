@@ -2,7 +2,6 @@
 
 import re
 import sys
-import os
 import subprocess
 from pymol import cmd
 
@@ -16,6 +15,8 @@ def parse_top(top_file):
 
     returns a dictionary describing the system
     """
+    top_file = clean_path(top_file)
+
     # define regex patterns for later use
     regexp_include = re.compile('^#include\s+\"(.*?)\"')
 
@@ -44,7 +45,7 @@ def parse_top(top_file):
             # look for included topologies
             if match := regexp_include.match(line):
                 include_file = match.group(1)
-                include_path = clean_path(os.path.join(os.path.dirname(top_file), include_file))
+                include_path = top_file.parent/include_file
                 # recursive call for included topologies and recursive update of system dictionary
                 update_recursive(system, parse_top(include_path))
             # look for a header in the form of `[something]`
@@ -111,6 +112,7 @@ def parse_tpr(tpr_file, gmx=None):
 
     returns a dictionary describing the system
     """
+    tpr_file = clean_path(tpr_file)
     gmx = get_gmx(gmx)
 
     # dump tpr info in a string
@@ -231,21 +233,15 @@ def parse(file=None, gmx=None):
 
     returns a dictionary describing the system
     """
-    # clean up path and check file existence
     maybe_file = clean_path(file)
-    if os.path.isfile(maybe_file):
-        ext = os.path.splitext(maybe_file)[1]
-        # return a differently parsed system depending on the provided file
-        if ext == ".tpr":
-            return parse_tpr(maybe_file, gmx)
-        elif ext == ".top" or ext == ".itp":
-            return parse_top(maybe_file)
-#        elif ext == ".pdb":
-#            return parse_pdb(maybe_file)
-        else:
-            raise TypeError(f'"{ext}" is not a supported format.')
+    ext = maybe_file.suffix
+    # return a differently parsed system depending on the provided file
+    if ext == ".tpr":
+        return parse_tpr(maybe_file, gmx)
+    elif ext in (".top", ".itp"):
+        return parse_top(maybe_file)
     else:
-        raise FileNotFoundError(f'{maybe_file} does not exist.')
+        raise TypeError(f'"{maybe_file.suffix}" is not a supported format.')
 
 
 if __name__ == '__main__':
