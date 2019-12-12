@@ -74,6 +74,16 @@ class System:
                 # shift offset by how many atoms this molecule has
                 offset += n_at
 
+        no_elastics = graph.copy()
+
+        # get rid of all elastic bonds to guess molecules
+        el_bonds = [edge for edge in graph.edges.data('type') if edge[2] == 'harmonic']
+        no_elastics.remove_edges_from(el_bonds)
+        # number all molecules differently
+        for i, mol in enumerate(nx.connected_components(no_elastics)):
+            for atom_id in mol:
+                graph.nodes[atom_id]['mol_id'] = i
+
         return graph
 
     def draw_bonds(self, selection):
@@ -85,7 +95,7 @@ class System:
             cmd.copy(elastics_obj, obj)
             for a, b, data in self.graph.edges(data=True):
                 # draw non-elastic bonds
-                if data['type'] in ['bonds', 'constr']:
+                if data['type'] in ['bonds', 'constr', 'vsiten']:
                     try:
                         a += 1
                         b += 1
@@ -113,13 +123,16 @@ class System:
                   'structure.\n Bonds containing those atoms were not drawn.')
 
     def transfer_attributes(self, selection):
+        """
+        save system information into pymol's atom properties
+        """
         data = self.graph.nodes(data=True)
         # create a namespace to feed to pymol
         tmp_namespace = {'data': data}
         cmd.alter(selection=selection, space=tmp_namespace,
                   # FIXME: -1 on the ID is a hack. Why is ID behaving differently here? It seems to
                   #        be starting from 1 instead of 0. But how are bonds working fine then?
-                  expression=f'elem=data[ID-1]["atomtype"]; '
+                  expression=f'elem=data[ID-1]["atomtype"]; segi=data[ID-1]["mol_id"]; '
                   )
 
     def __str__(self):

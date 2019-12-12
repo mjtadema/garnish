@@ -26,8 +26,9 @@ def parse_top(top_file):
     regexp_moltype = re.compile('^\s*(\S+)\s+(\d+)')
     regexp_atom = re.compile('^\s*(\d+)\s+(\S+)\s+\d+\s+\S+\s+(\S+)')
     regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
-    #regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)')
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
+    regexp_vsiten = re.compile('^\s*(\d+)\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)')
+    # TODO: should vsiten be hardcoded in number of interactions?
 
     # initialize some stuff
     block_id = 0
@@ -74,11 +75,12 @@ def parse_top(top_file):
                         'connectivity': {
                             'bonds': [],
                             'constr': [],
-                            'harmonic': []
+                            'harmonic': [],
+                            'vsiten': [],
                         },
                         'n_atoms': 0,
                         'atomtypes': {},
-                        'backbone': []
+                        'backbone': [],
                     }
             if section == 'atoms':
                 if match := regexp_atom.match(line):
@@ -102,6 +104,11 @@ def parse_top(top_file):
                     # save constraint, fixing the atom ids to match those of pymol
                     constr = tuple(int(b) + id_fix for b in match.group(1, 2))
                     system['topology'][curr_mol_type]['connectivity']['constr'].append(constr)
+            if section == 'virtual_sitesn':
+                if match := regexp_vsiten.match(line):
+                    # save site, fixing the atom ids to match those of pymol
+                    vsiten = tuple(int(b) + id_fix for b in match.group(1, 2))
+                    system['topology'][curr_mol_type]['connectivity']['vsiten'].append(vsiten)
 
     return system
 
@@ -132,9 +139,10 @@ def parse_tpr(tpr_file, gmx=None):
     regexp_data = {
         'atomnames': re.compile('^\s+atom\[(\d+)\]=\{name=\"(\S+?)'),
         'atomtypes': re.compile('^\s+type\[(\d+)\]=\{name=\"(\S+)\",'),
-        'bonds': re.compile('^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)'),
-        'constr': re.compile('^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)'),
-        'harmonic': re.compile('^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)')
+        'bonds': re.compile('^\s+\d+\stype=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)'),
+        'constr': re.compile('^\s+\d+\stype=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)'),
+        'harmonic': re.compile('^\s+\d+\stype=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)'),
+        'vsiten': re.compile('^\s+\d+\stype=\d+\s\(VSITEN\)\s+(\d+)\s+(\d+)')
     }
 
     # initialize some stuff
@@ -176,7 +184,8 @@ def parse_tpr(tpr_file, gmx=None):
                 system['topology'][curr_mol_type]['connectivity'] = {
                     'bonds': [],
                     'constr': [],
-                    'harmonic': []
+                    'harmonic': [],
+                    'vsiten': [],
                 }
                 # corresponding number of atoms
                 system['topology'][curr_mol_type]['n_atoms'] = 0
