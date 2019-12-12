@@ -46,9 +46,6 @@ ARGUMENTS
         system.draw_bonds(selection)
         system.transfer_attributes(selection)
 
-        # Fix the view for elastics
-        cmd.show_as("lines", '*_elastics')
-
     elif guess_bb:
         bb_beads = get_chain_bb(selection)
         # For each object and chain, draw bonds between BB beads
@@ -69,6 +66,8 @@ ARGUMENTS
 
     cmd.hide("everything", selection)
     cmd.show_as("sticks", selection)
+    # Fix the view for elastics
+    cmd.show_as("lines", '*_elastics')
 
 
 def extend_garnish():
