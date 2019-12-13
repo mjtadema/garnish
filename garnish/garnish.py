@@ -9,7 +9,7 @@ from .system import System
 from .utils import get_chain_bb
 
 
-def garnish(file=None, selection='all', gmx=None, fix_elastics=1, guess_bb=1, show=1):
+def garnish(file=None, selection='all', gmx=None, fix_elastics=1, guess_prot=1, show=1):
     """
 DESCRIPTION
 
@@ -32,11 +32,11 @@ ARGUMENTS
     gmx = gmx executable path (default: inferred by `which gmx`)
     fix_elastics = fix elastic bonds based on atom id. Disable if your beads are
                    numbered non-sequentially (default: 1)
-    guess_bb = if file is not present, simply draw bonds between backbone atoms (default: 1)
+    guess_prot = if file is not present, simply draw bonds between backbone atoms of a protein (default: 1)
     show = adjust representation after drawing bonds (default: 1)
     """
     fix_elastics = bool(int(fix_elastics))
-    guess_bb = bool(int(guess_bb))
+    guess_prot = bool(int(guess_prot))
     show = bool(int(show))
 
     # Retain order so pymol does not sort the atoms, giving a different result when saving the file
@@ -50,7 +50,7 @@ ARGUMENTS
         system.draw_bonds(selection)
         system.transfer_attributes(selection)
 
-    elif guess_bb:
+    elif guess_prot:
         bb_beads = get_chain_bb(selection)
         # For each object and chain, draw bonds between BB beads
         for obj, chains in bb_beads.items():
