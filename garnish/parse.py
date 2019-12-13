@@ -123,7 +123,7 @@ def parse_tpr(tpr_file, gmx=None):
     gmx = get_gmx(gmx)
 
     # dump tpr info in a string
-    gmxdump = subprocess.run([gmx, 'dump', '-s', clean_path(tpr_file)],
+    gmxdump = subprocess.run([str(gmx), 'dump', '-s', tpr_file],
                              capture_output=True, text=True)
 
     # define regex patterns for later use

@@ -29,16 +29,16 @@ def get_chain_bb(selection):
     return bb_beads
 
 
-def get_gmx(gmx_bin):
+def get_gmx(gmx_path):
     """
     if gmx binary is not given, find it. If it can't be found, raise an exception
     """
-    if not gmx_bin:
-        gmx_bin = shutil.which('gmx')
-    if not gmx_bin:
+    if not gmx_path:
+        gmx_path = shutil.which('gmx')
+    if not gmx_path:
         raise FileNotFoundError('no gromacs executable found.'
                                 'Add it manually with gmx="PATH_TO_GMX"')
-    return gmx_bin
+    return clean_path(gmx_path)
 
 
 def update_recursive(base_dict, input_dict):
