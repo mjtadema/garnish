@@ -43,6 +43,8 @@ def parse_top(top_file):
     # read the file as lines and parse data
     with open(top_file, 'r') as f:
         for line in f.readlines():
+            if line.startswith(";"):
+                continue # Ignore comments
             # look for included topologies
             if match := regexp_include.match(line):
                 include_file = match.group(1)
