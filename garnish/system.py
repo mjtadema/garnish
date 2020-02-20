@@ -49,11 +49,16 @@ class System:
         for block_id, block in self.sys_dict['blocks'].items():
             moltype = block['moltype']
             n_mol = block['n_molecules']
+            try:
+                n_at = self.sys_dict['topology'][moltype]['n_atoms']
+                a_types = self.sys_dict['topology'][moltype]['atomtypes']
 
-            n_at = self.sys_dict['topology'][moltype]['n_atoms']
-            a_types = self.sys_dict['topology'][moltype]['atomtypes']
-
-            connectivity = self.sys_dict['topology'][moltype]['connectivity']
+                connectivity = self.sys_dict['topology'][moltype]['connectivity']
+            except KeyError:
+                # This fails when the molecule is not in the topology
+                # Instead of just breaking, i think it's better to continue but warn about it
+                print(f"Warning: Molecule {moltype} is in the structure, but not in the topology. Skipping...")
+                continue
             # transform bonds in numpy arrays to easily apply offset
             connectivity = {btype: np.array(bonds) for btype, bonds in connectivity.items()}
 
