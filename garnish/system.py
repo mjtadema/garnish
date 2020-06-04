@@ -6,14 +6,14 @@ from pymol import cmd
 
 
 class System:
-    def __init__(self, sys_dict):
+    def __init__(self, sys_dict, fix_elastics=True):
         self.sys_dict = sys_dict
-        self.graph = nx.Graph()
 
-        # fix wrong elastic bonds
-        self.fix_elastics()
+        if fix_elastics:
+            # fix wrong elastic bonds
+            self.fix_elastics()
 
-        self.make_graph()
+        self.graph = self.make_graph()
 
     def fix_elastics(self):
         # Iterate over molecules, fix elastic bonds where necessary
@@ -25,10 +25,7 @@ class System:
             backbone = molecule['backbone']
 
             while bond_list:
-                try:
-                    bond = bond_list.pop()
-                except IndexError as e:
-                    raise e
+                bond = bond_list.pop()
                 bond_type = tmp_bonds
                 # if both atoms in a bond are labeled as backbone, go deeper
                 if all(atom in backbone for atom in bond):
@@ -45,6 +42,8 @@ class System:
             molecule['connectivity']['harmonic'] = tmp_harmonics
 
     def make_graph(self):
+        graph = nx.Graph()
+
         # unfold the topology to create a graph with atoms as nodes
         offset = 0
         for block_id, block in self.sys_dict['blocks'].items():
@@ -66,14 +65,26 @@ class System:
                 for local_atom_id in range(n_at):
                     atom_id = local_atom_id + offset
                     at_type = a_types[local_atom_id]
-                    self.graph.add_node(atom_id, moltype=moltype, block=block_id, atomtype=at_type)
+                    graph.add_node(atom_id, moltype=moltype, block=block_id, atomtype=at_type)
                 # add edges to graph
                 for btype, bonds in connectivity.items():
                     # create a graph based on connectivity and offset it to match atom numbers
-                    self.graph.add_edges_from(bonds + offset, type=btype)
+                    graph.add_edges_from(bonds + offset, type=btype)
 
                 # shift offset by how many atoms this molecule has
                 offset += n_at
+
+        no_elastics = graph.copy()
+
+        # get rid of all elastic bonds to guess molecules
+        el_bonds = [edge for edge in graph.edges.data('type') if edge[2] == 'harmonic']
+        no_elastics.remove_edges_from(el_bonds)
+        # number all molecules differently
+        for i, mol in enumerate(nx.connected_components(no_elastics)):
+            for atom_id in mol:
+                graph.nodes[atom_id]['mol_id'] = i
+
+        return graph
 
     def draw_bonds(self, selection):
         warn = False
@@ -84,7 +95,7 @@ class System:
             cmd.copy(elastics_obj, obj)
             for a, b, data in self.graph.edges(data=True):
                 # draw non-elastic bonds
-                if data['type'] in ['bonds', 'constr']:
+                if data['type'] in ['bonds', 'constr', 'vsiten']:
                     try:
                         a += 1
                         b += 1
@@ -105,20 +116,23 @@ class System:
                             cmd.bond(f"({elastics_obj} and ID {a})", f"({elastics_obj} and ID {b})")
                     except KeyError:
                         warn = True
-            cmd.color("orange", elastics_obj)
+
         # warn about missing atoms if needed.
         if warn:
             print('WARNING: some atoms present in the tpr file were not found in the loaded '
                   'structure.\n Bonds containing those atoms were not drawn.')
 
     def transfer_attributes(self, selection):
+        """
+        save system information into pymol's atom properties
+        """
         data = self.graph.nodes(data=True)
         # create a namespace to feed to pymol
         tmp_namespace = {'data': data}
         cmd.alter(selection=selection, space=tmp_namespace,
                   # FIXME: -1 on the ID is a hack. Why is ID behaving differently here? It seems to
                   #        be starting from 1 instead of 0. But how are bonds working fine then?
-                  expression=f'elem=data[ID-1]["atomtype"]; '
+                  expression=f'elem=data[ID-1]["atomtype"]; segi=data[ID-1]["mol_id"]; '
                   )
 
     def __str__(self):

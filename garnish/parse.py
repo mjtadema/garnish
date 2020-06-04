@@ -2,7 +2,6 @@
 
 import re
 import sys
-import os
 import subprocess
 from pymol import cmd
 
@@ -16,6 +15,11 @@ def parse_top(top_file):
 
     returns a dictionary describing the system
     """
+    top_file = clean_path(top_file)
+    if not top_file:
+        # Deal with missing files
+        return {}
+
     # define regex patterns for later use
     regexp_include = re.compile('^#include\s+\"(.*?)\"')
 
@@ -25,11 +29,12 @@ def parse_top(top_file):
     regexp_moltype = re.compile('^\s*(\S+)\s+(\d+)')
     regexp_atom = re.compile('^\s*(\d+)\s+(\S+)\s+\d+\s+\S+\s+(\S+)')
     regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
-    #regexp_bond = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)')
     regexp_constr = re.compile('^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d\.]+)')
+    regexp_vsiten = re.compile('^\s*(\d+)\s+\d+\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)')
+    # TODO: should vsiten be hardcoded in number of interactions?
 
     # initialize some stuff
-    ID = 0
+    block_id = 0
     system = {
         'blocks': {},
         'topology': {},
@@ -41,34 +46,32 @@ def parse_top(top_file):
     # read the file as lines and parse data
     with open(top_file, 'r') as f:
         for line in f.readlines():
+            if line.startswith(';'):
+                continue
             # look for included topologies
-            match = regexp_include.match(line)
-            if match:
+            if match := regexp_include.match(line):
                 include_file = match.group(1)
-                include_path = clean_path(os.path.join(os.path.dirname(top_file), include_file))
+                include_path = top_file.parent/include_file
                 # recursive call for included topologies and recursive update of system dictionary
                 update_recursive(system, parse_top(include_path))
             # look for a header in the form of `[something]`
-            match = regexp_header.match(line)
-            if match:
+            if match := regexp_header.match(line):
                 section = match.group(1)
             if section == 'molecules':
-                match = regexp_info.match(line)
-                if match:
+                if match := regexp_info.match(line):
                     # save molecule info
                     curr_mol_type = match.group(1)
                     n_molecules = int(match.group(2))
-                    curr_block_id = str(ID)
+                    curr_block_id = str(block_id)
                     # add molecule info to system
                     system['blocks'][curr_block_id] = {}
                     system['blocks'][curr_block_id]['moltype'] = curr_mol_type
                     system['blocks'][curr_block_id]['n_molecules'] = n_molecules
                     # update current block id. Needed because, differently from tpr,
                     # top does not define an id for blocks
-                    ID += 1
+                    block_id += 1
             if section == 'moleculetype':
-                match = regexp_moltype.match(line)
-                if match:
+                if match := regexp_moltype.match(line):
                     # if molecule header was found, initialize its dictionary
                     # molecule type id
                     curr_mol_type = match.group(1)
@@ -77,15 +80,15 @@ def parse_top(top_file):
                         'connectivity': {
                             'bonds': [],
                             'constr': [],
-                            'harmonic': []
+                            'harmonic': [],
+                            'vsiten': [],
                         },
                         'n_atoms': 0,
                         'atomtypes': {},
-                        'backbone': []
+                        'backbone': [],
                     }
             if section == 'atoms':
-                match = regexp_atom.match(line)
-                if match:
+                if match := regexp_atom.match(line):
                     atom_id = int(match.group(1))
                     atom_type = match.group(2)
                     atom_name = match.group(3)
@@ -97,17 +100,20 @@ def parse_top(top_file):
                     if atom_name == "BB":
                         system['topology'][curr_mol_type]['backbone'].append(atom_id + id_fix)
             if section == 'bonds':
-                match = regexp_bond.match(line)
-                if match:
+                if match := regexp_bond.match(line):
                     # save bond, fixing the atom ids to match those of pymol
                     bond = tuple(int(b) + id_fix for b in match.group(1, 2))
                     system['topology'][curr_mol_type]['connectivity']['bonds'].append(bond)
             if section == 'constraints':
-                match = regexp_constr.match(line)
-                if match:
+                if match := regexp_constr.match(line):
                     # save constraint, fixing the atom ids to match those of pymol
                     constr = tuple(int(b) + id_fix for b in match.group(1, 2))
                     system['topology'][curr_mol_type]['connectivity']['constr'].append(constr)
+            if section == 'virtual_sitesn':
+                if match := regexp_vsiten.match(line):
+                    # save site, fixing the atom ids to match those of pymol
+                    vsiten = tuple(int(b) + id_fix for b in match.group(1, 2))
+                    system['topology'][curr_mol_type]['connectivity']['vsiten'].append(vsiten)
 
     return system
 
@@ -118,28 +124,30 @@ def parse_tpr(tpr_file, gmx=None):
 
     returns a dictionary describing the system
     """
+    tpr_file = clean_path(tpr_file)
     gmx = get_gmx(gmx)
 
     # dump tpr info in a string
-    gmxdump = subprocess.run([gmx, "dump", "-s", clean_path(tpr_file)],
+    gmxdump = subprocess.run([str(gmx), 'dump', '-s', tpr_file],
                              capture_output=True, text=True)
 
     # define regex patterns for later use
     regexp_info = {
-        'molblock': re.compile('^\s+molblock\s+\((\d+)'),
+        'molblock': re.compile('^\s+molblock\s+\((\d+)\)'),
         'moltype': re.compile('^\s+moltype\s+=\s+(\d+)'),
         'molcount': re.compile('^\s+#molecules\s+=\s+(\d+)'),
         'endinfo': re.compile('^\s+ffparams')
     }
 
-    regexp_header = re.compile("^\s+moltype\s+\((\d+)\):")
+    regexp_header = re.compile('^\s+moltype\s+\((\d+)\):')
 
     regexp_data = {
-        'atomnames': re.compile("^\s+atom\[(\d+)\]=\{name=\"(\S+?)"),
-        'atomtypes': re.compile("^\s+type\[(\d+)\]=\{name=\"(\S+?)"),
-        'bonds': re.compile("^\s+\d+\s\w+=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)"),
-        'constr': re.compile("^\s+\d+\s\w+=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)"),
-        'harmonic': re.compile("^\s+\d+\s\w+=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)")
+        'atomnames': re.compile('^\s+atom\[(\d+)\]=\{name=\"(\S+?)'),
+        'atomtypes': re.compile('^\s+type\[(\d+)\]=\{name=\"(\S+)\",'),
+        'bonds': re.compile('^\s+\d+\stype=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)'),
+        'constr': re.compile('^\s+\d+\stype=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)'),
+        'harmonic': re.compile('^\s+\d+\stype=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)'),
+        'vsiten': re.compile('^\s+\d+\stype=\d+\s\(VSITEN\)\s+(\d+)\s+(\d+)')
     }
 
     # initialize some stuff
@@ -154,8 +162,7 @@ def parse_tpr(tpr_file, gmx=None):
         # parse for molecule information in the first section
         if info_section:
             for k, p in regexp_info.items():
-                match = p.match(line)
-                if match:
+                if match := p.match(line):
                     if k == 'molblock':
                         # save current molecule block id
                         curr_block_id = match.group(1)
@@ -174,8 +181,7 @@ def parse_tpr(tpr_file, gmx=None):
                         info_section = False
         else:
             # look for a new molecule definition
-            match = regexp_header.match(line)
-            if match:
+            if match := regexp_header.match(line):
                 # if molecule header was found, initialize some stuff
                 # molecule type id
                 curr_mol_type = match.group(1)
@@ -183,7 +189,8 @@ def parse_tpr(tpr_file, gmx=None):
                 system['topology'][curr_mol_type]['connectivity'] = {
                     'bonds': [],
                     'constr': [],
-                    'harmonic': []
+                    'harmonic': [],
+                    'vsiten': [],
                 }
                 # corresponding number of atoms
                 system['topology'][curr_mol_type]['n_atoms'] = 0
@@ -193,8 +200,7 @@ def parse_tpr(tpr_file, gmx=None):
                 system['topology'][curr_mol_type]['backbone'] = []
             # start looking for useful data in the line
             for key, p in regexp_data.items():
-                match = p.match(line)
-                if match:
+                if match := p.match(line):
                     if key == 'atomnames':
                         # update atom number for current molecule
                         system['topology'][curr_mol_type]['n_atoms'] += 1
@@ -241,21 +247,15 @@ def parse(file=None, gmx=None):
 
     returns a dictionary describing the system
     """
-    # clean up path and check file existence
     maybe_file = clean_path(file)
-    if os.path.isfile(maybe_file):
-        ext = os.path.splitext(maybe_file)[1]
-        # return a differently parsed system depending on the provided file
-        if ext == ".tpr":
-            return parse_tpr(maybe_file, gmx)
-        elif ext == ".top" or ext == ".itp":
-            return parse_top(maybe_file)
-#        elif ext == ".pdb":
-#            return parse_pdb(maybe_file)
-        else:
-            raise TypeError(f'"{ext}" is not a supported format.')
+    ext = maybe_file.suffix
+    # return a differently parsed system depending on the provided file
+    if ext == ".tpr":
+        return parse_tpr(maybe_file, gmx)
+    elif ext in (".top", ".itp"):
+        return parse_top(maybe_file)
     else:
-        raise FileNotFoundError(f'{maybe_file} does not exist.')
+        raise TypeError(f'"{maybe_file.suffix}" is not a supported format.')
 
 
 if __name__ == '__main__':

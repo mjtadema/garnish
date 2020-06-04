@@ -3,8 +3,9 @@
 from pymol import cmd
 import shutil
 import collections
-import os
+from pathlib import Path
 import sys
+import warnings
 
 
 def get_chain_bb(selection):
@@ -29,16 +30,16 @@ def get_chain_bb(selection):
     return bb_beads
 
 
-def get_gmx(gmx_bin):
+def get_gmx(gmx_path):
     """
     if gmx binary is not given, find it. If it can't be found, raise an exception
     """
-    if not gmx_bin:
-        gmx_bin = shutil.which('gmx')
-    if not gmx_bin:
+    if not gmx_path:
+        gmx_path = shutil.which('gmx')
+    if not gmx_path:
         raise FileNotFoundError('no gromacs executable found.'
                                 'Add it manually with gmx="PATH_TO_GMX"')
-    return gmx_bin
+    return clean_path(gmx_path)
 
 
 def update_recursive(base_dict, input_dict):
@@ -55,10 +56,14 @@ def update_recursive(base_dict, input_dict):
 
 def clean_path(path):
     """
-    resolves path variables, `~`, symlinks and returns a clean absolute path
+    cleans up paths and resolves ~ and symlinks
     """
-    return os.path.realpath(os.path.expanduser(os.path.expandvars(path)))
-
+    realpath = Path(path).expanduser().resolve()
+    if not realpath.exists():
+        #FIXME this is a shitty solution, we should deal with conditional include statements
+        warnings.warn(realpath.name+" doesn't exist")
+        return None
+    return realpath
 
 def extension(loading_func):
     """
@@ -69,11 +74,7 @@ def extension(loading_func):
     """
     try:
         # check if module was called by pymol
-        main_initfile = sys.modules['__main__'].__file__
-
-        # get the name of the parent module
-        main_modulename = os.path.basename(clean_path(os.path.join(main_initfile, os.pardir)))
-    
+        main_modulename = clean_path(sys.modules['__main__'].__file__).parent.name
     except AttributeError:
         # importing from an interpreter like ipython raises this error
         main_modulename = None
