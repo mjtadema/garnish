@@ -9,7 +9,7 @@ from .system import System
 from .utils import get_chain_bb
 
 
-def garnish(file=None, selection='all', gmx=None, fix_elastics=1, guess_prot=1, show=1):
+def garnish(file="topol.top", selection='all', gmx=None, fix_elastics=1, guess_prot=1, show=1):
     """
 DESCRIPTION
 
