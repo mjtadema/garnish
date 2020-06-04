@@ -5,6 +5,7 @@ import shutil
 import collections
 from pathlib import Path
 import sys
+import warnings
 
 
 def get_chain_bb(selection):
@@ -57,8 +58,12 @@ def clean_path(path):
     """
     cleans up paths and resolves ~ and symlinks
     """
-    return Path(path).expanduser().resolve()
-
+    realpath = Path(path).expanduser().resolve()
+    if not realpath.exists():
+        #FIXME this is a shitty solution, we should deal with conditional include statements
+        warnings.warn(realpath.name+" doesn't exist")
+        return None
+    return realpath
 
 def extension(loading_func):
     """

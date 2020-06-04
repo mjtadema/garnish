@@ -16,6 +16,9 @@ def parse_top(top_file):
     returns a dictionary describing the system
     """
     top_file = clean_path(top_file)
+    if not top_file:
+        # Deal with missing files
+        return {}
 
     # define regex patterns for later use
     regexp_include = re.compile('^#include\s+\"(.*?)\"')
