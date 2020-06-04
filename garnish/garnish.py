@@ -76,6 +76,9 @@ ARGUMENTS
         cmd.color('orange', '*_elastics')
         cmd.show_as("lines", '*_elastics')
 
+    # We could use this for debugging
+    return system
+
 
 def extend_garnish():
     cmd.extend('garnish', garnish)
