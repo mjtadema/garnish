@@ -1,3 +1,8 @@
+"""
+Contains PyMOL extensions
+Is automatically imported when run from PyMOL
+Also automatically extends garnish to be called in PyMOL
+"""
 # Copyright 2019-2019 the garnish authors. See copying.md for legal info.
 
 from pymol import cmd
