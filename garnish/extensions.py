@@ -14,16 +14,15 @@ from .system import System
 from .utils import get_chain_bb
 
 
-def garnish(file="topol.top", selection='all', gmx=None, fix_elastics=1, guess_prot=1, show=1):
+def garnish(file="topol.top", selection='all', gmx=None, fix_elastics=1,
+            guess_prot=1, show=1, _self=cmd, quiet=1):
     """
 DESCRIPTION
 
     Allow a coarse grained structure to be visualized in pymol like an atomistic structure
     by drawing bonds and elastic network.
 
-    Without a top/tpr file, this function only adds bonds between the backbone beads
-    so they can be nicely visualized using line or stick representation.
-    Adding a top/tpr file provides topology information that can be used
+    Using a top/tpr file provides topology information that can be used
     to draw side chain and elastic bonds.
 
 USAGE
@@ -45,7 +44,7 @@ ARGUMENTS
     show = bool(int(show))
 
     # Retain order so pymol does not sort the atoms, giving a different result when saving the file
-    cmd.set("retain_order", 1)
+    _self.set("retain_order", 1)
 
     if file:
         # parse the file
@@ -64,22 +63,22 @@ ARGUMENTS
                 bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
                 for a, b in bonds:
                     try:
-                        cmd.add_bond(obj, a, b)
+                        _self.add_bond(obj, a, b)
                     except AttributeError:
-                        cmd.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
+                        _self.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
 
     else:
         # show as spheres if no info on bonds is present
         if show:
-            cmd.show_as('spheres', selection)
+            _self.show_as('spheres', selection)
         return
 
     if show:
-        cmd.hide("everything", selection)
-        cmd.show_as("sticks", selection)
+        _self.hide("everything", selection)
+        _self.show_as("sticks", selection)
         # Fix the view for elastics
-        cmd.color('orange', '*_elastics')
-        cmd.show_as("lines", '*_elastics')
+        _self.color('orange', '*_elastics')
+        _self.show_as("lines", '*_elastics')
 
     # We could use this for debugging
     return system
