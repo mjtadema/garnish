@@ -84,15 +84,15 @@ ARGUMENTS
     return system
 
 
-def extend_garnish():
-    cmd.extend('garnish', garnish)
 
-    # tab completion for the garnish command
-    def useful_file_sc():
-        return cmd.Shortcut(glob('**/*.tpr', recursive=True) +
-                            glob('**/*.top', recursive=True) +
-                            glob('**/*.itp', recursive=True))
+cmd.extend('garnish', garnish)
 
-    cmd.auto_arg[0]['garnish'] = [useful_file_sc, 'input file', ', ']
-    # here object_sc is more informative than selection_sc
-    cmd.auto_arg[1]['garnish'] = [cmd.object_sc, 'selection', '']
+# tab completion for the garnish command
+def useful_file_sc():
+    return cmd.Shortcut(glob('**/*.tpr', recursive=True) +
+                        glob('**/*.top', recursive=True) +
+                        glob('**/*.itp', recursive=True))
+
+cmd.auto_arg[0]['garnish'] = [useful_file_sc, 'input file', ', ']
+# here object_sc is more informative than selection_sc
+cmd.auto_arg[1]['garnish'] = [cmd.object_sc, 'selection', '']

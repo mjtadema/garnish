@@ -64,23 +64,3 @@ def clean_path(path):
         warnings.warn(realpath.name+" doesn't exist")
         return None
     return realpath
-
-def extension(loading_func):
-    """
-    Decorator/Wrapper for pymol extension functions.
-    Will only return the loading function if called by pymol, else returns an empty function
-    so no errors are raised.
-    These functions can then be called in __init__.py to extend pymol functions to pymol.
-    """
-    try:
-        # check if module was called by pymol
-        main_modulename = clean_path(sys.modules['__main__'].__file__).parent.name
-    except AttributeError:
-        # importing from an interpreter like ipython raises this error
-        main_modulename = None
-
-    if main_modulename == 'pymol':
-        return loading_func
-    else:
-        # Just return a passing lambda doing nothing, to avoid errors further downstream
-        return lambda: None
