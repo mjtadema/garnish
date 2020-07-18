@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-
 import setuptools
-
 
 with open("README.md", 'r') as f:
     long_description = f.read()
@@ -25,5 +23,8 @@ setuptools.setup(
             'networkx',
             'numpy'
             ],
-        python_requires='>=3.5'
+        python_requires='>=3.5',
+        package_data={
+            "garnish": ["data/*"]
+            }
         )
