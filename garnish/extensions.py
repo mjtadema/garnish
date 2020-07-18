@@ -9,13 +9,39 @@ from pymol import cmd
 from glob import glob
 
 # local imports
-from .parse import parse
-from .system import System
-from .utils import get_chain_bb
+from . import Parser
 
 
-def garnish(file="topol.top", selection='all', gmx=None, fix_elastics=1,
-            guess_prot=1, show=1, _self=cmd, quiet=1):
+def bonds_from_system(selection, system, _self=cmd, quiet=1):
+    """
+    Take a System object and draw all the bonds in selection
+    :param system:
+    :param _self:
+    :param quiet:
+    :return:
+    """
+
+    for obj in _self.get_object_list(selection):
+        elastics_obj = obj + "_elastics"
+        _self.copy(elastics_obj, obj)
+        idx_shift = 0
+        for mol, n in system.topology:
+            for i in range(n):
+                draw_bonds(obj, mol.bonds, idx_shift)
+                draw_bonds(elastics_obj, mol.elastics, idx_shift)
+                idx_shift += len(mol)
+
+
+def draw_bonds(target, connections, idx_shift,
+               _self=cmd, quiet=1):
+    for a, b in connections:
+        a += idx_shift
+        b += idx_shift
+        _self.add_bond(target, a, b)
+
+
+@cmd.extend
+def garnish(file="topol.top", selection='all', show=1, _self=cmd, quiet=1):
     """
 DESCRIPTION
 
@@ -39,34 +65,16 @@ ARGUMENTS
     guess_prot = if file is not present, simply draw bonds between backbone atoms of a protein (default: 1)
     show = adjust representation after drawing bonds (default: 1)
     """
-    fix_elastics = bool(int(fix_elastics))
-    guess_prot = bool(int(guess_prot))
     show = bool(int(show))
 
     # Retain order so pymol does not sort the atoms, giving a different result when saving the file
     _self.set("retain_order", 1)
 
     if file:
-        # parse the file
-        sys_dict = parse(file, gmx)
-        # create System object and draw all the bonds
-        system = System(sys_dict, fix_elastics=fix_elastics)
-        system.draw_bonds(selection)
-        system.transfer_attributes(selection)
-
-    elif guess_prot:
-        bb_beads = get_chain_bb(selection)
-        # For each object and chain, draw bonds between BB beads
-        for obj, chains in bb_beads.items():
-            for _, bbs in chains.items():
-                # create bond tuples for "adjacent" backbone beads
-                bonds = [(bbs[i], bbs[i+1]) for i in range(len(bbs) - 1)]
-                for a, b in bonds:
-                    try:
-                        _self.add_bond(obj, a, b)
-                    except AttributeError:
-                        _self.bond(f"{obj} and ID {a}", f"{obj} and ID {b}")
-
+        # parse the file and create system object
+        system = Parser(top_file=file).run()
+        # Draw all the bonds in target
+        bonds_from_system(selection, system)
     else:
         # show as spheres if no info on bonds is present
         if show:
@@ -80,18 +88,13 @@ ARGUMENTS
         _self.color('orange', '*_elastics')
         _self.show_as("lines", '*_elastics')
 
-    # We could use this for debugging
-    return system
 
-
-
-cmd.extend('garnish', garnish)
-
-# tab completion for the garnish command
 def useful_file_sc():
+    """tab completion for the garnish command"""
     return cmd.Shortcut(glob('**/*.tpr', recursive=True) +
                         glob('**/*.top', recursive=True) +
                         glob('**/*.itp', recursive=True))
+
 
 cmd.auto_arg[0]['garnish'] = [useful_file_sc, 'input file', ', ']
 # here object_sc is more informative than selection_sc
