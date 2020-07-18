@@ -19,10 +19,6 @@ setuptools.setup(
             "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
             ],
-        install_requires=[
-            'networkx',
-            'numpy'
-            ],
         python_requires='>=3.5',
         package_data={
             "garnish": ["data/*"]
