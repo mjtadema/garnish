@@ -8,7 +8,7 @@ with open("README.md", 'r') as f:
 
 setuptools.setup(
         name="garnish",
-        version="0.3-alpha",
+        version="0.4-alpha",
         author=["Matthijs Tadema", "Lorenzo Gaifas"],
         author_email=["M.J.Tadema@protonmail.com", "brisvag@gmail.com"],
         description="Render coarse grained molecular structures in PyMOL",
