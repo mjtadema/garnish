@@ -1,0 +1,29 @@
+
+#include "martini.itp"
+#include "molecule_0.itp"
+#include "martini_v2.0_DOPC_02.itp"
+#include "martini_v2.0_DPSM_01.itp"
+
+[ system ]
+Title of the system
+
+[ molecules ]
+molecule_0    4
+; X: 12.552 (16 bins) Y: 10.870 (14 bins) in upper leaflet
+; X: 12.552 (16 bins) Y: 10.870 (14 bins) in lower leaflet
+; 185 lipids in upper leaflet, 166 lipids in lower leaflet
+; NDX Solute 1 1584
+; Charge of protein: 32.000000
+; NDX Membrane 1585 5609
+; Charge of membrane: 0.000000
+; Total charge: 32.000000
+; NDX Solvent 5610 14279
+; NDX System 1 14279
+; "I mean, the good stuff is just INSANE" --Julia Ormond
+DOPC            92
+DPSM            92
+DOPC            83
+DPSM            83
+W             8484
+NA+             77
+CL-            109
