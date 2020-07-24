@@ -96,8 +96,7 @@ ARGUMENTS
 
 def useful_file_sc():
     """tab completion for the garnish command"""
-    return cmd.Shortcut(glob('**/*.tpr', recursive=True) +
-                        glob('**/*.top', recursive=True) +
+    return cmd.Shortcut(glob('**/*.top', recursive=True) +
                         glob('**/*.itp', recursive=True))
 
 
