@@ -23,6 +23,21 @@ class Parser:
             "molecules": self._molecules,
             "constraints": self._constraints
         }
+        self.variables = {}
+
+    def resolve(self, string : str):
+        """
+        Resolve variables in the string and (safely) evaluate the expression
+        :param string:
+        :return: evaluated expression
+        """
+        code = compile(string, "<string>", "eval")
+        for name in code.co_names:
+            if name not in self.variables:
+                # Have to do this to not allow malicious code
+                raise NameError("Use of undefined names is not allowed")
+        # An empty namespace and empty __builtins__ are passed for safety
+        return eval(code, {"__builtins__": {}}, self.variables)
 
     def run(self):
         """
@@ -58,12 +73,11 @@ class Parser:
 
                 # Handle include files
                 if line.startswith("#include"):
-                    _, itp_file = line.strip().split()
-                    itp_file = itp_file.strip("\"")
-                    itp_file = Path(itp_file)
-                    if not itp_file.name.startswith("/"):
-                        itp_file = self.top_file.parent/itp_file
-                    self.top(itp_file)
+                    self._include(line)
+                    continue
+
+                if line.startswith("#define"):
+                    self._define(line)
                     continue
 
                 # Get rid of any comments
