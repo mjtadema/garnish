@@ -81,9 +81,8 @@ class Parser:
                     continue
 
                 # Get rid of any comments
-                line = line.rsplit(";", 1)[0]
-                # ...and any define statements
-                line = line.rsplit("#", 1)[0]
+                line = line.split(";")[0]
+                line = line.split("#")[0]
 
                 # Skip empty lines
                 if line == "":
