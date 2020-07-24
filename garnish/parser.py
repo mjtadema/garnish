@@ -150,7 +150,8 @@ class Parser:
         _from = int(_from)
         to = int(to)
         distance = float(distance)
-        fc = float(fc)
+        # Sometimes these are variably defined
+        fc = float(self.resolve(fc))
 
         if distance <= 0.47 and fc >= 1250:
             # Short distance, high force constant bonds are considered covalent
