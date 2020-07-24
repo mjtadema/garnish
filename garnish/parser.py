@@ -67,6 +67,9 @@ class Parser:
                 # Strip whitespace always
                 line = line.strip()
 
+                # Get rid of any comments
+                line = line.split(";")[0]
+
                 if line.startswith("["):
                     header = line.strip("[ ]")
                     continue
@@ -80,11 +83,10 @@ class Parser:
                     self._define(line)
                     continue
 
-                # Get rid of any comments
-                line = line.split(";")[0]
+                # ignore any # directives we don't catch specifically
                 line = line.split("#")[0]
 
-                # Skip empty lines
+                # Skip empty lines after filtering
                 if line == "":
                     continue
 
