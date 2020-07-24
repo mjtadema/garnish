@@ -7,6 +7,7 @@ Also automatically extends garnish to be called in PyMOL
 
 from pymol import cmd
 from glob import glob
+import logging
 
 # local imports
 from . import Parser
@@ -69,6 +70,10 @@ ARGUMENTS
 
     # Retain order so pymol does not sort the atoms, giving a different result when saving the file
     _self.set("retain_order", 1)
+
+    if int(quiet) < 1:
+        logging.basicConfig(level="DEBUG")
+        logging.debug("Starting debug logging")
 
     if file:
         # parse the file and create system object

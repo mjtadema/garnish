@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import warnings
+import logging
 
 # local imports
 from .system import System, Molecule, Atom
@@ -29,6 +30,8 @@ class Parser:
         :return: System
         """
         self.top(self.top_file)
+        logging.debug("Found following molecules in topology")
+        logging.debug(self.system.topology)
         return self.system
 
     def top(self, top_file):
@@ -77,6 +80,42 @@ class Parser:
                 except KeyError:
                     # Skip unneeded headers
                     pass
+
+    def _include(self, line):
+        _, itp_file = line.strip().split()
+        itp_file = itp_file.strip("\"")
+        itp_file = Path(itp_file)
+        if not itp_file.name.startswith("/"):
+            itp_file = self.top_file.parent / itp_file
+        self.top(itp_file)
+
+    def _define(self, line):
+        # Define statements define a variable name
+        # and an optional value
+        splitline = line.strip().split()
+        name, value = "", ""
+        if len(splitline) == 2:
+            # A variable is defined without a value
+            name = splitline[1]
+            value = None
+        elif len(splitline) == 3:
+            # A variable is defined with a value
+            _, name, value = splitline
+            try:
+                value = float(value)
+            except ValueError:
+                pass
+        else:
+            logging.debug(f"Couldn't parse define statement:\n"+
+                          line.strip())
+            logging.debug(f"{name=}, {value=}")
+
+        # Check if the variables don't overwrite existing
+        # namespace
+        if name in globals() or name in locals():
+            raise Exception("Use of global or local names is not allowed")
+
+        self.variables[name] = value
 
     def _moleculetype(self, line):
         name, nrexcl = line.strip().split()
