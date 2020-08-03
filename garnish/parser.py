@@ -16,13 +16,6 @@ class Parser:
         self.top_file = Path(top_file)
         self.system = System()
         self._active_molecule = None
-        self._parsers = {
-            "bonds": self._bonds,
-            "moleculetype": self._moleculetype,
-            "atoms": self._atoms,
-            "molecules": self._molecules,
-            "constraints": self._constraints
-        }
         self.variables = {}
 
     def resolve(self, string : str):
@@ -76,11 +69,11 @@ class Parser:
 
                 # Handle include files
                 if line.startswith("#include"):
-                    self._include(line)
+                    self.parse_include(line)
                     continue
 
                 if line.startswith("#define"):
-                    self._define(line)
+                    self.parse_define(line)
                     continue
 
                 # ignore any # directives we don't catch specifically
@@ -91,12 +84,12 @@ class Parser:
                     continue
 
                 try:
-                    self._parsers[header](line)
-                except KeyError:
+                    getattr(self, "parse_"+header)(line)
+                except AttributeError:
                     # Skip unneeded headers
                     pass
 
-    def _include(self, line):
+    def parse_include(self, line):
         _, itp_file = line.strip().split()
         itp_file = itp_file.strip("\"")
         itp_file = Path(itp_file)
@@ -104,7 +97,7 @@ class Parser:
             itp_file = self.top_file.parent / itp_file
         self.top(itp_file)
 
-    def _define(self, line):
+    def parse_define(self, line):
         # Define statements define a variable name
         # and an optional value
         splitline = line.strip().split()
@@ -132,20 +125,20 @@ class Parser:
 
         self.variables[name] = value
 
-    def _moleculetype(self, line):
+    def parse_moleculetype(self, line):
         name, nrexcl = line.strip().split()
         molecule = Molecule(name=name)
         self.system.extend(molecule)
         self.active_molecule = molecule
 
-    def _atoms(self, line):
+    def parse_atoms(self, line):
         idx, _type, resi, resn, name, *_ = line.strip().split()
         idx = int(idx)
         resi = int(resi)
         atom = Atom(idx, _type, resi, resn, name)
         self.active_molecule.extend(atom)
 
-    def _bonds(self, line):
+    def parse_bonds(self, line):
         _from, to, bondtype, distance, fc = line.strip().split()
 
         _from = int(_from)
@@ -162,14 +155,14 @@ class Parser:
             # regardless of bondtype
             self.active_molecule[_from].add_elastic(to)
 
-    def _constraints(self, line):
+    def parse_constraints(self, line):
         # Constraints are considered bonds
         _from, to, *_ = line.strip().split()
         _from = int(_from)
         to = int(to)
         self.active_molecule[_from].add_bond(to)
 
-    def _molecules(self, line):
+    def parse_molecules(self, line):
         name, n = line.strip().split()
         n = int(n)
         self.system.order(name, n)
