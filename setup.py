@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-
 import setuptools
-
 
 with open("README.md", 'r') as f:
     long_description = f.read()
 
 setuptools.setup(
         name="garnish",
-        version="0.3-alpha",
+        version="0.4-alpha",
         author=["Matthijs Tadema", "Lorenzo Gaifas"],
         author_email=["M.J.Tadema@protonmail.com", "brisvag@gmail.com"],
         description="Render coarse grained molecular structures in PyMOL",
@@ -21,9 +19,8 @@ setuptools.setup(
             "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
             ],
-        install_requires=[
-            'networkx',
-            'numpy'
-            ],
-        python_requires='>=3.5'
+        python_requires='>=3.5',
+        package_data={
+            "garnish": ["data/*"]
+            }
         )
