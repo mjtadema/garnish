@@ -1,6 +1,9 @@
 # Garnish Accurately Represents a Network of Interconnected Systems in a Heartbeat
 GARNISH allows a coarse grained structure to be visualized in pymol like an atomistic structure by drawing bonds and elastic network.
 
+# Disclaimer (BEWARE)
+The package will be subject to a thorough rewrite in the very near future.
+
 # Screenshot
 ![Screenshot](/screenshots/screenshots.png?raw=true "lysozyme 2VB1")
 Lysozyme 2VB1 from left to right: crystal structure in cartoon representation, licorice representation with backbone bonds drawn, elastic network visualized using line representation.

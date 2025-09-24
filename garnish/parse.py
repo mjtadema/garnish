@@ -133,21 +133,21 @@ def parse_tpr(tpr_file, gmx=None):
 
     # define regex patterns for later use
     regexp_info = {
-        'molblock': re.compile('^\s+molblock\s+\((\d+)\)'),
-        'moltype': re.compile('^\s+moltype\s+=\s+(\d+)'),
-        'molcount': re.compile('^\s+#molecules\s+=\s+(\d+)'),
-        'endinfo': re.compile('^\s+ffparams')
+        'molblock': re.compile(r'^\s+molblock\s+\((\d+)\)'),
+        'moltype': re.compile(r'^\s+moltype\s+=\s+(\d+)'),
+        'molcount': re.compile(r'^\s+#molecules\s+=\s+(\d+)'),
+        'endinfo': re.compile(r'^\s+ffparams')
     }
 
-    regexp_header = re.compile('^\s+moltype\s+\((\d+)\):')
+    regexp_header = re.compile(r'^\s+moltype\s+\((\d+)\):')
 
     regexp_data = {
-        'atomnames': re.compile('^\s+atom\[(\d+)\]=\{name=\"(\S+?)'),
-        'atomtypes': re.compile('^\s+type\[(\d+)\]=\{name=\"(\S+)\",'),
-        'bonds': re.compile('^\s+\d+\stype=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)'),
-        'constr': re.compile('^\s+\d+\stype=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)'),
-        'harmonic': re.compile('^\s+\d+\stype=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)'),
-        'vsiten': re.compile('^\s+\d+\stype=\d+\s\(VSITEN\)\s+(\d+)\s+(\d+)')
+        'atomnames': re.compile(r'^\s+atom\[(\d+)\]=\{name=\"(\S+?)'),
+        'atomtypes': re.compile(r'^\s+type\[(\d+)\]=\{name=\"(\S+)\",'),
+        'bonds': re.compile(r'^\s+\d+\stype=\d+\s\(BONDS\)\s+(\d+)\s+(\d+)'),
+        'constr': re.compile(r'^\s+\d+\stype=\d+\s\(CONSTR\)\s+(\d+)\s+(\d+)'),
+        'harmonic': re.compile(r'^\s+\d+\stype=\d+\s\(HARMONIC\)\s+(\d+)\s+(\d+)'),
+        'vsiten': re.compile(r'^\s+\d+\stype=\d+\s\(VSITEN\)\s+(\d+)\s+(\d+)')
     }
 
     # initialize some stuff
